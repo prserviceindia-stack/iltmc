@@ -342,17 +342,20 @@ function AboutSection({ content }) {
 
 // Members Section
 function MembersSection({ members, ranks, positions }) {
+  const ranksArray = Array.isArray(ranks) ? ranks : []
+  const positionsArray = Array.isArray(positions) ? positions : []
+  
   const getRankBadge = (rankName) => {
-    const rank = ranks?.find(r => r.name === rankName)
+    const rank = ranksArray.find(r => r.name === rankName)
     return rank?.badge || '🔰'
   }
 
   const getPositionBadge = (positionName) => {
-    const position = positions?.find(p => p.name === positionName)
+    const position = positionsArray.find(p => p.name === positionName)
     return position?.badge || '⚔️'
   }
 
-  const displayMembers = members?.length > 0 ? members : [
+  const displayMembers = Array.isArray(members) && members.length > 0 ? members : [
     { id: '1', name: 'Rahul Deb', roadName: 'Thunder', rank: 'Gunner', position: 'President', chapter: 'Agartala', bike: 'Royal Enfield Classic 350', status: 'active' },
     { id: '2', name: 'Amit Sarkar', roadName: 'Storm', rank: 'Shotgun', position: 'Vice President', chapter: 'Agartala', bike: 'Harley Davidson Iron 883', status: 'active' },
     { id: '3', name: 'Bikash Das', roadName: 'Rider', rank: 'Boulder', position: 'Road Captain', chapter: 'Agartala', bike: 'Royal Enfield Himalayan', status: 'active' },
