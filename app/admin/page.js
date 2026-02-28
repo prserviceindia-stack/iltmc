@@ -1505,6 +1505,136 @@ function ContentTab({ token }) {
 
         {/* Section Editor */}
         <div className="lg:col-span-3 space-y-4">
+          {/* Branding Section */}
+          {activeSection === 'branding' && (
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Image size={20} /> Branding & Logo</CardTitle>
+                <CardDescription>Manage club logo and branding elements</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Club Logo URL</Label>
+                  <Input value={content.branding?.logo || ''} onChange={(e) => updateBranding('logo', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="https://..." />
+                  {content.branding?.logo && (
+                    <div className="mt-3 p-4 bg-zinc-800 rounded-lg flex items-center gap-4">
+                      <img src={content.branding.logo} alt="Logo Preview" className="h-24 w-24 object-contain" />
+                      <div>
+                        <p className="text-sm text-gray-400">Current Logo</p>
+                        <p className="text-xs text-gray-500 mt-1">Recommended: PNG with transparent background, min 200x200px</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Club Short Name</Label>
+                    <Input value={content.branding?.clubName || ''} onChange={(e) => updateBranding('clubName', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="ILTMC" />
+                  </div>
+                  <div>
+                    <Label>Tagline</Label>
+                    <Input value={content.branding?.tagline || ''} onChange={(e) => updateBranding('tagline', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="Est. 2013" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Club Full Name</Label>
+                  <Input value={content.branding?.clubFullName || ''} onChange={(e) => updateBranding('clubFullName', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="Intrepidus Leones Tripura Motorcycle Club" />
+                </div>
+                <div>
+                  <Label>Favicon URL (optional)</Label>
+                  <Input value={content.branding?.favicon || ''} onChange={(e) => updateBranding('favicon', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="https://... (16x16 or 32x32 icon)" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Stats Counter Section */}
+          {activeSection === 'stats' && (
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><BarChart3 size={20} /> Stats Counter</CardTitle>
+                <CardDescription>Edit the statistics displayed on homepage</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Members Stat */}
+                <div className="p-4 bg-zinc-800/50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users size={18} className="text-red-500" />
+                    <span className="font-medium">Members Counter</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Value</Label>
+                      <Input value={content.stats?.members?.value || ''} onChange={(e) => updateStats('members', 'value', e.target.value)} className="bg-zinc-700 border-zinc-600" placeholder="50" />
+                    </div>
+                    <div>
+                      <Label>Label</Label>
+                      <Input value={content.stats?.members?.label || ''} onChange={(e) => updateStats('members', 'label', e.target.value)} className="bg-zinc-700 border-zinc-600" placeholder="Members" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rides Stat */}
+                <div className="p-4 bg-zinc-800/50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <MapPin size={18} className="text-red-500" />
+                    <span className="font-medium">Rides Counter</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Value</Label>
+                      <Input value={content.stats?.rides?.value || ''} onChange={(e) => updateStats('rides', 'value', e.target.value)} className="bg-zinc-700 border-zinc-600" placeholder="200" />
+                    </div>
+                    <div>
+                      <Label>Label</Label>
+                      <Input value={content.stats?.rides?.label || ''} onChange={(e) => updateStats('rides', 'label', e.target.value)} className="bg-zinc-700 border-zinc-600" placeholder="Rides Completed" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Distance Stat */}
+                <div className="p-4 bg-zinc-800/50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Bike size={18} className="text-red-500" />
+                    <span className="font-medium">Distance Counter</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Value</Label>
+                      <Input value={content.stats?.distance?.value || ''} onChange={(e) => updateStats('distance', 'value', e.target.value)} className="bg-zinc-700 border-zinc-600" placeholder="50,000+" />
+                    </div>
+                    <div>
+                      <Label>Label</Label>
+                      <Input value={content.stats?.distance?.label || ''} onChange={(e) => updateStats('distance', 'label', e.target.value)} className="bg-zinc-700 border-zinc-600" placeholder="KM Covered" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Years Stat */}
+                <div className="p-4 bg-zinc-800/50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Calendar size={18} className="text-red-500" />
+                    <span className="font-medium">Years Counter</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Value</Label>
+                      <Input value={content.stats?.years?.value || ''} onChange={(e) => updateStats('years', 'value', e.target.value)} className="bg-zinc-700 border-zinc-600" placeholder="13" />
+                    </div>
+                    <div>
+                      <Label>Label</Label>
+                      <Input value={content.stats?.years?.label || ''} onChange={(e) => updateStats('years', 'label', e.target.value)} className="bg-zinc-700 border-zinc-600" placeholder="Years Strong" />
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  Note: These values will be displayed on the homepage. You can use numbers with suffixes like &quot;50,000+&quot; or &quot;12&quot;
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Hero Section */}
           {activeSection === 'hero' && (
             <Card className="bg-zinc-900/50 border-zinc-800">
