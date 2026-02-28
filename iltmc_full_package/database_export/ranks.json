@@ -1,0 +1,7 @@
+{"_id":{"$oid":"69a2d2e04cc53ea177254d35"},"id":"3ef1c030-41e6-4fae-a6fc-bc5140065dd4","name":"Gunner","level":1,"badge":"🔫","description":"Highest achievement rank","color":"#fbbf24"}
+{"_id":{"$oid":"69a2d2e04cc53ea177254d36"},"id":"56034060-b206-4131-8ec1-9ffb28a901cb","name":"Shotgun","level":2,"badge":"💥","description":"Elite rider status","color":"#f59e0b"}
+{"_id":{"$oid":"69a2d2e04cc53ea177254d37"},"id":"ace23d66-a141-427b-8d1a-9b0ea8d04b02","name":"Boulder","level":3,"badge":"🪨","description":"Veteran rider","color":"#8b5cf6"}
+{"_id":{"$oid":"69a2d2e04cc53ea177254d38"},"id":"582a3876-00ad-4349-ae67-8f3c642bd43d","name":"Iron Clad","level":4,"badge":"🛡️","description":"Experienced rider","color":"#3b82f6"}
+{"_id":{"$oid":"69a2d2e04cc53ea177254d39"},"id":"47ab5d67-15e5-443a-93d1-44f0152321f8","name":"Iron","level":5,"badge":"⚔️","description":"Proven rider","color":"#10b981"}
+{"_id":{"$oid":"69a2d2e04cc53ea177254d3a"},"id":"876d6874-cb8d-4739-8428-e53f5d04d6b5","name":"Rock","level":6,"badge":"🗿","description":"Established rider","color":"#6b7280"}
+{"_id":{"$oid":"69a2d2e04cc53ea177254d3b"},"id":"c2e4da2a-1c2f-4287-bc2e-3a968909ae0e","name":"Rubble","level":7,"badge":"🔰","description":"New member rank","color":"#9ca3af"}

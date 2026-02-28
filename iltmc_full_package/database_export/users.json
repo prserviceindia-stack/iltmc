@@ -1,0 +1,1 @@
+{"_id":{"$oid":"69a2cefd018b3b7098de8a19"},"id":"f0c4c58f-0376-427d-9013-ae2191e94b0a","email":"admin@iltmc.com","password":"$2b$12$99UbJQ/AXJe686qSlyQr/.9U2iFLFQgIoifBm6nuZPbXxZqyu//Hy","name":"Super Admin","role":"super_admin","createdAt":{"$date":"2026-02-28T11:18:21.981Z"}}
