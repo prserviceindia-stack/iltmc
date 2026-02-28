@@ -6,7 +6,8 @@ import {
   Users, MapPin, Calendar, Trophy, LayoutDashboard, Settings, 
   LogOut, Bike, Shield, Plus, Edit, Trash2, Eye, CheckCircle,
   XCircle, Clock, Mail, FileText, BarChart3, Search, Menu, X,
-  ChevronDown, User, Bell, Activity, TrendingUp
+  ChevronDown, User, Bell, Activity, TrendingUp, Globe, Image,
+  Type, Link, Phone, Home, Info, Award, Building
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
