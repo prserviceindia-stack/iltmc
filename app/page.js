@@ -975,12 +975,16 @@ function Footer({ content }) {
         
         <div className="border-t border-zinc-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-gray-500 text-sm">
-            © {new Date().getFullYear()} ILTMC - Intrepidus Leones Tripura Motorcycle Club. All rights reserved.
+            {(footerContent.copyright || '© {year} ILTMC - Intrepidus Leones Tripura Motorcycle Club. All rights reserved.').replace('{year}', new Date().getFullYear())}
           </p>
           <div className="flex gap-4">
-            {[Facebook, Instagram, Youtube].map((Icon, i) => (
-              <a key={i} href="#" className="text-gray-500 hover:text-red-500 transition-colors">
-                <Icon size={20} />
+            {[
+              { icon: Facebook, link: socialLinks.facebook },
+              { icon: Instagram, link: socialLinks.instagram },
+              { icon: Youtube, link: socialLinks.youtube }
+            ].map((item, i) => (
+              <a key={i} href={item.link || '#'} target={item.link ? '_blank' : '_self'} rel="noopener noreferrer" className="text-gray-500 hover:text-red-500 transition-colors">
+                <item.icon size={20} />
               </a>
             ))}
           </div>
