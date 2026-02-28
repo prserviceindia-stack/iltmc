@@ -334,19 +334,24 @@ function AboutSection() {
 }
 
 // Members Section
-function MembersSection({ members, ranks }) {
+function MembersSection({ members, ranks, positions }) {
   const getRankBadge = (rankName) => {
     const rank = ranks?.find(r => r.name === rankName)
-    return rank?.badge || '⚔️'
+    return rank?.badge || '🔰'
+  }
+
+  const getPositionBadge = (positionName) => {
+    const position = positions?.find(p => p.name === positionName)
+    return position?.badge || '⚔️'
   }
 
   const displayMembers = members?.length > 0 ? members : [
-    { id: '1', name: 'Rahul Deb', roadName: 'Thunder', rank: 'President', chapter: 'Agartala', bike: 'Royal Enfield Classic 350', status: 'active', avatar: '' },
-    { id: '2', name: 'Amit Sarkar', roadName: 'Storm', rank: 'Vice President', chapter: 'Agartala', bike: 'Harley Davidson Iron 883', status: 'active', avatar: '' },
-    { id: '3', name: 'Bikash Das', roadName: 'Rider', rank: 'Road Captain', chapter: 'Agartala', bike: 'Royal Enfield Himalayan', status: 'active', avatar: '' },
-    { id: '4', name: 'Dipak Roy', roadName: 'Ghost', rank: 'Member', chapter: 'Dharmanagar', bike: 'KTM Duke 390', status: 'active', avatar: '' },
-    { id: '5', name: 'Suman Debnath', roadName: 'Blaze', rank: 'Member', chapter: 'Agartala', bike: 'Bajaj Dominar 400', status: 'active', avatar: '' },
-    { id: '6', name: 'Rajesh Nath', roadName: 'Phoenix', rank: 'Prospect', chapter: 'Udaipur', bike: 'TVS Apache RR310', status: 'prospect', avatar: '' },
+    { id: '1', name: 'Rahul Deb', roadName: 'Thunder', rank: 'Gunner', position: 'President', chapter: 'Agartala', bike: 'Royal Enfield Classic 350', status: 'active' },
+    { id: '2', name: 'Amit Sarkar', roadName: 'Storm', rank: 'Shotgun', position: 'Vice President', chapter: 'Agartala', bike: 'Harley Davidson Iron 883', status: 'active' },
+    { id: '3', name: 'Bikash Das', roadName: 'Rider', rank: 'Boulder', position: 'Road Captain', chapter: 'Agartala', bike: 'Royal Enfield Himalayan', status: 'active' },
+    { id: '4', name: 'Dipak Roy', roadName: 'Ghost', rank: 'Iron Clad', position: 'Member', chapter: 'Dharmanagar', bike: 'KTM Duke 390', status: 'active' },
+    { id: '5', name: 'Suman Debnath', roadName: 'Blaze', rank: 'Iron', position: 'Member', chapter: 'Agartala', bike: 'Bajaj Dominar 400', status: 'active' },
+    { id: '6', name: 'Rajesh Nath', roadName: 'Phoenix', rank: 'Rubble', position: 'Member', chapter: 'Udaipur', bike: 'TVS Apache RR310', status: 'active' },
   ]
 
   return (
@@ -380,24 +385,29 @@ function MembersSection({ members, ranks }) {
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-2xl shrink-0">
-                      {getRankBadge(member.rank)}
+                      {getPositionBadge(member.position)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-lg truncate" style={{ fontFamily: 'Oswald, sans-serif' }}>
                         {member.name}
                       </p>
                       <p className="text-red-500 font-medium">&quot;{member.roadName}&quot;</p>
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
                         <Badge className={member.status === 'active' ? 'bg-green-600' : member.status === 'prospect' ? 'bg-yellow-600' : 'bg-gray-600'}>
                           {member.status}
-                        </Badge>
-                        <Badge variant="outline" className="border-red-500/50">
-                          {member.rank}
                         </Badge>
                       </div>
                     </div>
                   </div>
                   <div className="mt-4 pt-4 border-t border-zinc-800 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="border-yellow-500/50 text-yellow-400 text-xs">
+                        {getRankBadge(member.rank)} {member.rank || 'N/A'}
+                      </Badge>
+                      <Badge variant="outline" className="border-red-500/50 text-red-400 text-xs">
+                        {getPositionBadge(member.position)} {member.position || 'N/A'}
+                      </Badge>
+                    </div>
                     <p className="text-sm text-gray-400 flex items-center gap-2">
                       <MapPin size={14} className="text-red-500" />
                       {member.chapter} Chapter
