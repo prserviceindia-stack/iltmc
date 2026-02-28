@@ -1257,9 +1257,12 @@ function ContactsTab({ token }) {
 function SEOTab({ token }) {
   const [seo, setSeo] = useState({
     title: '', description: '', keywords: '', ogImage: '', 
-    robotsTxt: '', analyticsId: '', facebookPixel: ''
+    robotsTxt: '', analyticsId: '', facebookPixel: '',
+    googleVerification: '', bingVerification: '', yandexVerification: '', pinterestVerification: '',
+    headScripts: '', bodyScripts: ''
   })
   const [loading, setLoading] = useState(true)
+  const [activeSection, setActiveSection] = useState('meta')
 
   useEffect(() => {
     fetchSEO()
@@ -1286,93 +1289,294 @@ function SEOTab({ token }) {
 
   if (loading) return <div>Loading...</div>
 
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>SEO Settings</h1>
-        <p className="text-gray-400">Manage website SEO and analytics</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>SEO Settings</h1>
+          <p className="text-gray-400">Manage website SEO, webmaster tools, and analytics</p>
+        </div>
+        <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">
+          Save All Settings
+        </Button>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      {/* Quick Links */}
+      <div className="flex flex-wrap gap-2">
+        <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer">
+          <Badge variant="outline" className="cursor-pointer hover:bg-zinc-800">View Sitemap.xml</Badge>
+        </a>
+        <a href="/robots.txt" target="_blank" rel="noopener noreferrer">
+          <Badge variant="outline" className="cursor-pointer hover:bg-zinc-800">View Robots.txt</Badge>
+        </a>
+      </div>
+
+      {/* Section Tabs */}
+      <div className="flex gap-2 border-b border-zinc-800 pb-2">
+        {[
+          { id: 'meta', label: 'Meta Tags' },
+          { id: 'webmaster', label: 'Webmaster Verification' },
+          { id: 'analytics', label: 'Analytics & Tracking' },
+          { id: 'robots', label: 'Robots & Sitemap' },
+          { id: 'scripts', label: 'Custom Scripts' }
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSection(tab.id)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeSection === tab.id ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-zinc-800'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Meta Tags Section */}
+      {activeSection === 'meta' && (
         <Card className="bg-zinc-900/50 border-zinc-800">
           <CardHeader>
             <CardTitle>Meta Tags</CardTitle>
+            <CardDescription>Configure page title, description, and Open Graph tags</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <Label>Site Title</Label>
               <Input
-                value={seo.title}
+                value={seo.title || ''}
                 onChange={(e) => setSeo({...seo, title: e.target.value})}
                 className="bg-zinc-800 border-zinc-700"
+                placeholder="ILTMC - Intrepidus Leones Tripura Motorcycle Club"
               />
             </div>
             <div>
               <Label>Meta Description</Label>
               <Textarea
-                value={seo.description}
+                value={seo.description || ''}
                 onChange={(e) => setSeo({...seo, description: e.target.value})}
                 className="bg-zinc-800 border-zinc-700"
+                placeholder="Elite motorcycle club based in Tripura, India. Est. 2013."
+                rows={3}
               />
+              <p className="text-xs text-gray-500 mt-1">{(seo.description || '').length}/160 characters recommended</p>
             </div>
             <div>
               <Label>Keywords</Label>
               <Input
-                value={seo.keywords}
+                value={seo.keywords || ''}
                 onChange={(e) => setSeo({...seo, keywords: e.target.value})}
                 className="bg-zinc-800 border-zinc-700"
-                placeholder="comma, separated, keywords"
+                placeholder="motorcycle club, Tripura, ILTMC, bikers, riding club"
               />
             </div>
             <div>
               <Label>OG Image URL</Label>
               <Input
-                value={seo.ogImage}
+                value={seo.ogImage || ''}
                 onChange={(e) => setSeo({...seo, ogImage: e.target.value})}
                 className="bg-zinc-800 border-zinc-700"
+                placeholder="https://..."
+              />
+              <p className="text-xs text-gray-500 mt-1">Recommended: 1200x630 pixels</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Webmaster Verification Section */}
+      {activeSection === 'webmaster' && (
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle>Webmaster Verification</CardTitle>
+            <CardDescription>Add verification codes for search engines and social platforms</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 bg-zinc-800/50 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">G</div>
+                <div>
+                  <p className="font-medium">Google Search Console</p>
+                  <p className="text-xs text-gray-500">Verify at: search.google.com/search-console</p>
+                </div>
+              </div>
+              <Label>Google Verification Code</Label>
+              <Input
+                value={seo.googleVerification || ''}
+                onChange={(e) => setSeo({...seo, googleVerification: e.target.value})}
+                className="bg-zinc-700 border-zinc-600"
+                placeholder="Enter the content value from meta tag (e.g., abc123xyz)"
+              />
+            </div>
+
+            <div className="p-4 bg-zinc-800/50 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-cyan-600 rounded flex items-center justify-center text-white font-bold">B</div>
+                <div>
+                  <p className="font-medium">Bing Webmaster Tools</p>
+                  <p className="text-xs text-gray-500">Verify at: bing.com/webmasters</p>
+                </div>
+              </div>
+              <Label>Bing Verification Code</Label>
+              <Input
+                value={seo.bingVerification || ''}
+                onChange={(e) => setSeo({...seo, bingVerification: e.target.value})}
+                className="bg-zinc-700 border-zinc-600"
+                placeholder="Enter the content value from meta tag"
+              />
+            </div>
+
+            <div className="p-4 bg-zinc-800/50 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-red-600 rounded flex items-center justify-center text-white font-bold">Y</div>
+                <div>
+                  <p className="font-medium">Yandex Webmaster</p>
+                  <p className="text-xs text-gray-500">Verify at: webmaster.yandex.com</p>
+                </div>
+              </div>
+              <Label>Yandex Verification Code</Label>
+              <Input
+                value={seo.yandexVerification || ''}
+                onChange={(e) => setSeo({...seo, yandexVerification: e.target.value})}
+                className="bg-zinc-700 border-zinc-600"
+                placeholder="Enter the content value from meta tag"
+              />
+            </div>
+
+            <div className="p-4 bg-zinc-800/50 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center text-white font-bold">P</div>
+                <div>
+                  <p className="font-medium">Pinterest</p>
+                  <p className="text-xs text-gray-500">Verify at: pinterest.com/settings</p>
+                </div>
+              </div>
+              <Label>Pinterest Verification Code</Label>
+              <Input
+                value={seo.pinterestVerification || ''}
+                onChange={(e) => setSeo({...seo, pinterestVerification: e.target.value})}
+                className="bg-zinc-700 border-zinc-600"
+                placeholder="Enter the content value from meta tag"
               />
             </div>
           </CardContent>
         </Card>
+      )}
 
+      {/* Analytics Section */}
+      {activeSection === 'analytics' && (
         <Card className="bg-zinc-900/50 border-zinc-800">
           <CardHeader>
             <CardTitle>Analytics & Tracking</CardTitle>
+            <CardDescription>Configure analytics and tracking pixels</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label>Google Analytics ID</Label>
+            <div className="p-4 bg-zinc-800/50 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-orange-500 rounded flex items-center justify-center text-white">
+                  <BarChart3 size={18} />
+                </div>
+                <div>
+                  <p className="font-medium">Google Analytics 4</p>
+                  <p className="text-xs text-gray-500">Track website traffic and user behavior</p>
+                </div>
+              </div>
+              <Label>Measurement ID</Label>
               <Input
-                value={seo.analyticsId}
+                value={seo.analyticsId || ''}
                 onChange={(e) => setSeo({...seo, analyticsId: e.target.value})}
-                className="bg-zinc-800 border-zinc-700"
+                className="bg-zinc-700 border-zinc-600"
                 placeholder="G-XXXXXXXXXX"
               />
             </div>
-            <div>
-              <Label>Facebook Pixel ID</Label>
+
+            <div className="p-4 bg-zinc-800/50 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">f</div>
+                <div>
+                  <p className="font-medium">Facebook Pixel / Meta Pixel</p>
+                  <p className="text-xs text-gray-500">Track conversions from Facebook ads</p>
+                </div>
+              </div>
+              <Label>Pixel ID</Label>
               <Input
-                value={seo.facebookPixel}
+                value={seo.facebookPixel || ''}
                 onChange={(e) => setSeo({...seo, facebookPixel: e.target.value})}
-                className="bg-zinc-800 border-zinc-700"
-              />
-            </div>
-            <div>
-              <Label>Robots.txt</Label>
-              <Textarea
-                value={seo.robotsTxt}
-                onChange={(e) => setSeo({...seo, robotsTxt: e.target.value})}
-                className="bg-zinc-800 border-zinc-700 font-mono text-sm"
-                rows={5}
+                className="bg-zinc-700 border-zinc-600"
+                placeholder="Enter your Facebook Pixel ID"
               />
             </div>
           </CardContent>
         </Card>
-      </div>
+      )}
 
-      <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">
-        Save SEO Settings
-      </Button>
+      {/* Robots & Sitemap Section */}
+      {activeSection === 'robots' && (
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle>Robots.txt & Sitemap</CardTitle>
+            <CardDescription>Configure search engine crawling rules</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div className="p-4 bg-green-900/20 border border-green-700/50 rounded-lg">
+                <p className="text-green-400 font-medium">Sitemap URL</p>
+                <p className="text-sm text-gray-400 break-all">{baseUrl}/sitemap.xml</p>
+              </div>
+              <div className="p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
+                <p className="text-blue-400 font-medium">Robots.txt URL</p>
+                <p className="text-sm text-gray-400 break-all">{baseUrl}/robots.txt</p>
+              </div>
+            </div>
+            <div>
+              <Label>Robots.txt Content</Label>
+              <Textarea
+                value={seo.robotsTxt || ''}
+                onChange={(e) => setSeo({...seo, robotsTxt: e.target.value})}
+                className="bg-zinc-800 border-zinc-700 font-mono text-sm"
+                rows={10}
+                placeholder={`User-agent: *\nAllow: /\nDisallow: /admin\n\nSitemap: ${baseUrl}/sitemap.xml`}
+              />
+              <p className="text-xs text-gray-500 mt-1">The sitemap URL will be auto-appended if not included</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Custom Scripts Section */}
+      {activeSection === 'scripts' && (
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle>Custom Scripts</CardTitle>
+            <CardDescription>Add custom tracking scripts or code snippets</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Head Scripts (before &lt;/head&gt;)</Label>
+              <Textarea
+                value={seo.headScripts || ''}
+                onChange={(e) => setSeo({...seo, headScripts: e.target.value})}
+                className="bg-zinc-800 border-zinc-700 font-mono text-sm"
+                rows={6}
+                placeholder="<!-- Paste your head scripts here -->"
+              />
+              <p className="text-xs text-gray-500 mt-1">Scripts placed in the &lt;head&gt; section (e.g., analytics, fonts)</p>
+            </div>
+            <div>
+              <Label>Body Scripts (before &lt;/body&gt;)</Label>
+              <Textarea
+                value={seo.bodyScripts || ''}
+                onChange={(e) => setSeo({...seo, bodyScripts: e.target.value})}
+                className="bg-zinc-800 border-zinc-700 font-mono text-sm"
+                rows={6}
+                placeholder="<!-- Paste your body scripts here -->"
+              />
+              <p className="text-xs text-gray-500 mt-1">Scripts placed at the end of &lt;body&gt; (e.g., chat widgets, conversion scripts)</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
