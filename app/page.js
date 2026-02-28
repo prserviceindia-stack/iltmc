@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Menu, X, ChevronDown, Users, MapPin, Calendar, Trophy, 
   Bike, Shield, Star, ArrowRight, Mail, Phone, Send,
-  Instagram, Facebook, Youtube, Clock, Navigation
+  Instagram, Facebook, Youtube, Clock, Compass
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
