@@ -699,6 +699,19 @@ async function handleRoute(request, { params }) {
       if (!content) {
         // Return default content
         return handleCORS(NextResponse.json({
+          branding: {
+            logo: 'https://customer-assets.emergentagent.com/job_9bab05d4-0d45-4f8d-a396-cf0659408542/artifacts/lv5k959m_Ilt%20logo.png',
+            clubName: 'ILTMC',
+            clubFullName: 'Intrepidus Leones Tripura Motorcycle Club',
+            tagline: 'Est. 2013',
+            favicon: ''
+          },
+          stats: {
+            members: { value: '50', label: 'Members', icon: 'users' },
+            rides: { value: '200', label: 'Rides Completed', icon: 'mapPin' },
+            distance: { value: '50,000+', label: 'KM Covered', icon: 'compass' },
+            years: { value: '13', label: 'Years Strong', icon: 'calendar' }
+          },
           hero: {
             title: 'INTREPIDUS LEONES',
             subtitle: 'TRIPURA MOTORCYCLE CLUB',
