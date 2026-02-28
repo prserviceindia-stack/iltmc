@@ -764,9 +764,11 @@ function JoinSection() {
 }
 
 // Contact Section
-function ContactSection() {
+function ContactSection({ content }) {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' })
   const [loading, setLoading] = useState(false)
+  const contactInfo = content?.contact || {}
+  const socialLinks = content?.social || {}
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -798,9 +800,11 @@ function ContactSection() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <Badge variant="outline" className="mb-4 border-red-500 text-red-500">GET IN TOUCH</Badge>
+          <Badge variant="outline" className="mb-4 border-red-500 text-red-500">{contactInfo.badge || 'GET IN TOUCH'}</Badge>
           <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: 'Oswald, sans-serif' }}>
-            CONTACT <span className="text-red-500">US</span>
+            {contactInfo.title ? contactInfo.title.split(' ').map((word, i) => 
+              i === 1 ? <span key={i} className="text-red-500">{word} </span> : word + ' '
+            ) : <>CONTACT <span className="text-red-500">US</span></>}
           </h2>
         </motion.div>
 
@@ -815,22 +819,26 @@ function ContactSection() {
               <div className="glass-effect rounded-xl p-6">
                 <MapPin className="w-10 h-10 text-red-500 mb-4" />
                 <h3 className="text-xl font-bold mb-2" style={{ fontFamily: 'Oswald, sans-serif' }}>Location</h3>
-                <p className="text-gray-400">Agartala, Tripura, India</p>
+                <p className="text-gray-400">{contactInfo.address || 'Agartala, Tripura, India'}</p>
               </div>
               <div className="glass-effect rounded-xl p-6">
                 <Mail className="w-10 h-10 text-red-500 mb-4" />
                 <h3 className="text-xl font-bold mb-2" style={{ fontFamily: 'Oswald, sans-serif' }}>Email</h3>
-                <p className="text-gray-400">contact@iltmc.com</p>
+                <p className="text-gray-400">{contactInfo.email || 'contact@iltmc.com'}</p>
               </div>
               <div className="glass-effect rounded-xl p-6">
                 <Phone className="w-10 h-10 text-red-500 mb-4" />
                 <h3 className="text-xl font-bold mb-2" style={{ fontFamily: 'Oswald, sans-serif' }}>WhatsApp</h3>
-                <p className="text-gray-400">+91 XXXXXXXXXX</p>
+                <p className="text-gray-400">{contactInfo.whatsapp || contactInfo.phone || '+91 XXXXXXXXXX'}</p>
               </div>
               <div className="flex gap-4">
-                {[Facebook, Instagram, Youtube].map((Icon, i) => (
-                  <a key={i} href="#" className="w-12 h-12 glass-effect rounded-xl flex items-center justify-center hover:bg-red-600 transition-colors">
-                    <Icon size={20} />
+                {[
+                  { icon: Facebook, link: socialLinks.facebook },
+                  { icon: Instagram, link: socialLinks.instagram },
+                  { icon: Youtube, link: socialLinks.youtube }
+                ].map((item, i) => (
+                  <a key={i} href={item.link || '#'} target={item.link ? '_blank' : '_self'} rel="noopener noreferrer" className="w-12 h-12 glass-effect rounded-xl flex items-center justify-center hover:bg-red-600 transition-colors">
+                    <item.icon size={20} />
                   </a>
                 ))}
               </div>
