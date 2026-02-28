@@ -641,13 +641,38 @@ async function handleRoute(request, { params }) {
           description: 'Elite motorcycle club based in Tripura, India. Est. 2013.',
           keywords: 'motorcycle club, Tripura, ILTMC, bikers',
           ogImage: '',
-          robotsTxt: 'User-agent: *\nAllow: /',
+          robotsTxt: 'User-agent: *\nAllow: /\n\nSitemap: /sitemap.xml',
           analyticsId: '',
-          facebookPixel: ''
+          facebookPixel: '',
+          // Webmaster Verification
+          googleVerification: '',
+          bingVerification: '',
+          yandexVerification: '',
+          pinterestVerification: '',
+          // Additional scripts
+          headScripts: '',
+          bodyScripts: ''
         }))
       }
       const { _id, ...cleanedSeo } = seo
       return handleCORS(NextResponse.json(cleanedSeo))
+    }
+
+    // Get public SEO settings (for frontend meta tags)
+    if (route === '/seo' && method === 'GET') {
+      const seo = await db.collection('seo_settings').findOne({ key: 'global' })
+      if (!seo) {
+        return handleCORS(NextResponse.json({
+          title: 'ILTMC - Intrepidus Leones Tripura Motorcycle Club',
+          description: 'Elite motorcycle club based in Tripura, India. Est. 2013.',
+          keywords: 'motorcycle club, Tripura, ILTMC, bikers',
+          googleVerification: '',
+          bingVerification: '',
+          analyticsId: ''
+        }))
+      }
+      const { _id, key, ...publicSeo } = seo
+      return handleCORS(NextResponse.json(publicSeo))
     }
 
     // Update SEO settings
