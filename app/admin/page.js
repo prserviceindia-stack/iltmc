@@ -110,7 +110,10 @@ function LoginForm({ onLogin }) {
 function Sidebar({ activeTab, setActiveTab, user, onLogout, collapsed, setCollapsed }) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'content', label: 'Website Content', icon: Globe },
     { id: 'members', label: 'Members', icon: Users },
+    { id: 'ranks', label: 'Ranks & Positions', icon: Award },
+    { id: 'chapters', label: 'Chapters', icon: Building },
     { id: 'rides', label: 'Rides', icon: Bike },
     { id: 'attendance', label: 'Attendance', icon: CheckCircle },
     { id: 'events', label: 'Events', icon: Calendar },
