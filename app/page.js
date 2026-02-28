@@ -233,14 +233,19 @@ function HeroSection({ stats, content }) {
 }
 
 // About Section
-function AboutSection() {
-  const timeline = [
-    { year: '2013', title: 'Foundation', desc: 'ILTMC was founded by passionate riders in Tripura' },
-    { year: '2015', title: 'First State Ride', desc: 'Organized first statewide motorcycle rally' },
-    { year: '2018', title: 'National Recognition', desc: 'Joined the national motorcycle club federation' },
-    { year: '2020', title: 'Community Service', desc: 'Started charity rides and community programs' },
-    { year: '2023', title: '10 Year Anniversary', desc: 'Celebrated a decade of brotherhood and riding' },
+function AboutSection({ content }) {
+  const aboutContent = content?.about || {}
+  const timelineContent = content?.timeline || []
+  
+  const timeline = timelineContent.length > 0 ? timelineContent : [
+    { year: '2013', title: 'Foundation', description: 'ILTMC was founded by passionate riders in Tripura' },
+    { year: '2015', title: 'First State Ride', description: 'Organized first statewide motorcycle rally' },
+    { year: '2018', title: 'National Recognition', description: 'Joined the national motorcycle club federation' },
+    { year: '2020', title: 'Community Service', description: 'Started charity rides and community programs' },
+    { year: '2023', title: '10 Year Anniversary', description: 'Celebrated a decade of brotherhood and riding' },
   ]
+
+  const values = aboutContent.values?.filter(v => v) || ['Brotherhood', 'Freedom', 'Respect']
 
   return (
     <section id="about" className="py-24 bg-gradient-to-b from-black to-zinc-950">
@@ -251,12 +256,14 @@ function AboutSection() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <Badge variant="outline" className="mb-4 border-red-500 text-red-500">OUR STORY</Badge>
+          <Badge variant="outline" className="mb-4 border-red-500 text-red-500">{aboutContent.badge || 'OUR STORY'}</Badge>
           <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: 'Oswald, sans-serif' }}>
-            ABOUT <span className="text-red-500">ILTMC</span>
+            {aboutContent.title ? aboutContent.title.split(' ').map((word, i) => 
+              i === 1 ? <span key={i} className="text-red-500">{word} </span> : word + ' '
+            ) : <>ABOUT <span className="text-red-500">ILTMC</span></>}
           </h2>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            A brotherhood forged on the open road, united by the love of motorcycles and the spirit of adventure.
+            {aboutContent.subtitle || 'A brotherhood forged on the open road, united by the love of motorcycles and the spirit of adventure.'}
           </p>
         </motion.div>
 
@@ -270,7 +277,7 @@ function AboutSection() {
           >
             <div className="absolute -inset-4 bg-red-500/20 blur-3xl rounded-full" />
             <img
-              src={ABOUT_IMG}
+              src={aboutContent.image || ABOUT_IMG}
               alt="ILTMC Members"
               className="relative rounded-2xl shadow-2xl shadow-red-500/20"
             />
@@ -283,24 +290,20 @@ function AboutSection() {
             viewport={{ once: true }}
           >
             <h3 className="text-2xl font-bold mb-4 text-red-500" style={{ fontFamily: 'Oswald, sans-serif' }}>
-              INTREPIDUS LEONES - The Fearless Lions
+              {aboutContent.sectionTitle || 'INTREPIDUS LEONES - The Fearless Lions'}
             </h3>
             <p className="text-gray-300 mb-6 leading-relaxed">
-              Founded in 2013 in Agartala, Tripura, ILTMC (Intrepidus Leones Tripura Motorcycle Club) 
-              represents a brotherhood of passionate riders who share an unbreakable bond through 
-              their love for motorcycles and the open road.
+              {aboutContent.description1 || 'Founded in 2013 in Agartala, Tripura, ILTMC (Intrepidus Leones Tripura Motorcycle Club) represents a brotherhood of passionate riders who share an unbreakable bond through their love for motorcycles and the open road.'}
             </p>
             <p className="text-gray-400 mb-6 leading-relaxed">
-              Our name, derived from Latin, means &quot;Fearless Lions&quot; - embodying the courage, 
-              strength, and pride that defines every member of our club. We ride together, 
-              stand together, and grow together.
+              {aboutContent.description2 || 'Our name, derived from Latin, means "Fearless Lions" - embodying the courage, strength, and pride that defines every member of our club. We ride together, stand together, and grow together.'}
             </p>
 
             <div className="grid grid-cols-3 gap-4 mb-8">
               {[
-                { icon: Shield, label: 'Brotherhood' },
-                { icon: Bike, label: 'Freedom' },
-                { icon: Star, label: 'Respect' },
+                { icon: Shield, label: values[0] || 'Brotherhood' },
+                { icon: Bike, label: values[1] || 'Freedom' },
+                { icon: Star, label: values[2] || 'Respect' },
               ].map((item, i) => (
                 <div key={i} className="text-center p-4 glass-effect rounded-xl">
                   <item.icon className="w-8 h-8 text-red-500 mx-auto mb-2" />
@@ -325,7 +328,7 @@ function AboutSection() {
                   </div>
                   <div>
                     <p className="font-semibold">{item.title}</p>
-                    <p className="text-sm text-gray-400">{item.desc}</p>
+                    <p className="text-sm text-gray-400">{item.description || item.desc}</p>
                   </div>
                 </motion.div>
               ))}
