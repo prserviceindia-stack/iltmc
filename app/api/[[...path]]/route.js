@@ -69,9 +69,12 @@ async function initializeDefaults(db) {
     })
   }
 
-  // Initialize default ranks (achievement levels)
+  // Initialize default ranks (achievement levels) - ILTMC Custom Ranks
   const ranksExist = await db.collection('ranks').countDocuments()
-  if (ranksExist === 0) {
+  const hasNewRanks = await db.collection('ranks').findOne({ name: 'Gunner' })
+  if (ranksExist === 0 || !hasNewRanks) {
+    // Drop old ranks and insert new ones
+    await db.collection('ranks').deleteMany({})
     const defaultRanks = [
       { id: uuidv4(), name: 'Gunner', level: 1, badge: '🔫', description: 'Highest achievement rank', color: '#fbbf24' },
       { id: uuidv4(), name: 'Shotgun', level: 2, badge: '💥', description: 'Elite rider status', color: '#f59e0b' },
