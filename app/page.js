@@ -118,12 +118,16 @@ function Navbar({ content }) {
 }
 
 // Hero Section
-function HeroSection({ stats }) {
+function HeroSection({ stats, content }) {
+  const heroContent = content?.hero || {}
+  const statsContent = content?.stats || {}
+  const branding = content?.branding || {}
+
   return (
     <section id="home" className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0">
-        <img src={HERO_BG} alt="" className="w-full h-full object-cover" />
+        <img src={heroContent.backgroundImage || HERO_BG} alt="" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black" />
         <div className="absolute inset-0 bg-gradient-to-r from-red-900/30 via-transparent to-red-900/30" />
       </div>
@@ -135,7 +139,7 @@ function HeroSection({ stats }) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8 }}
         >
-          <img src={LOGO_URL} alt="ILTMC Logo" className="w-40 h-40 md:w-56 md:h-56 mx-auto mb-8 drop-shadow-2xl" />
+          <img src={branding.logo || LOGO_URL} alt="ILTMC Logo" className="w-40 h-40 md:w-56 md:h-56 mx-auto mb-8 drop-shadow-2xl" />
         </motion.div>
 
         <motion.h1
@@ -145,7 +149,7 @@ function HeroSection({ stats }) {
           className="text-4xl md:text-6xl lg:text-7xl font-bold mb-4 tracking-wider"
           style={{ fontFamily: 'Oswald, sans-serif' }}
         >
-          INTREPIDUS LEONES
+          {heroContent.title || 'INTREPIDUS LEONES'}
         </motion.h1>
 
         <motion.p
@@ -155,7 +159,7 @@ function HeroSection({ stats }) {
           className="text-xl md:text-2xl text-red-500 font-semibold mb-4"
           style={{ fontFamily: 'Oswald, sans-serif' }}
         >
-          TRIPURA MOTORCYCLE CLUB
+          {heroContent.subtitle || 'TRIPURA MOTORCYCLE CLUB'}
         </motion.p>
 
         <motion.p
@@ -164,7 +168,7 @@ function HeroSection({ stats }) {
           transition={{ delay: 0.7, duration: 0.8 }}
           className="text-gray-400 text-lg mb-8"
         >
-          Brotherhood • Freedom • Respect | Est. 2013
+          {heroContent.tagline || 'Brotherhood • Freedom • Respect | Est. 2013'}
         </motion.p>
 
         <motion.div
@@ -173,14 +177,14 @@ function HeroSection({ stats }) {
           transition={{ delay: 0.9, duration: 0.8 }}
           className="flex flex-wrap justify-center gap-4"
         >
-          <a href="#join">
+          <a href={heroContent.ctaLink || '#join'}>
             <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white px-8 py-6 text-lg glow-red">
-              JOIN THE PRIDE <ArrowRight className="ml-2" />
+              {heroContent.ctaText || 'JOIN THE PRIDE'} <ArrowRight className="ml-2" />
             </Button>
           </a>
-          <a href="#about">
+          <a href={heroContent.secondaryCtaLink || '#about'}>
             <Button size="lg" variant="outline" className="border-white/30 hover:bg-white/10 px-8 py-6 text-lg">
-              LEARN MORE
+              {heroContent.secondaryCtaText || 'LEARN MORE'}
             </Button>
           </a>
         </motion.div>
@@ -193,10 +197,10 @@ function HeroSection({ stats }) {
           className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6"
         >
           {[
-            { icon: Users, value: stats?.totalMembers || 50, label: 'Members' },
-            { icon: MapPin, value: stats?.totalRides || 200, label: 'Rides Completed' },
-            { icon: Compass, value: `${(stats?.totalDistance || 50000).toLocaleString()}+`, label: 'KM Covered' },
-            { icon: Calendar, value: stats?.yearsActive || 12, label: 'Years Strong' },
+            { icon: Users, value: statsContent.members?.value || stats?.totalMembers || '50', label: statsContent.members?.label || 'Members' },
+            { icon: MapPin, value: statsContent.rides?.value || stats?.totalRides || '200', label: statsContent.rides?.label || 'Rides Completed' },
+            { icon: Compass, value: statsContent.distance?.value || `${(stats?.totalDistance || 50000).toLocaleString()}+`, label: statsContent.distance?.label || 'KM Covered' },
+            { icon: Calendar, value: statsContent.years?.value || stats?.yearsActive || '12', label: statsContent.years?.label || 'Years Strong' },
           ].map((stat, index) => (
             <div key={index} className="glass-effect rounded-xl p-4 md:p-6">
               <stat.icon className="w-8 h-8 text-red-500 mx-auto mb-2" />
