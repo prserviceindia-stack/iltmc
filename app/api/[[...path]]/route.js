@@ -69,20 +69,34 @@ async function initializeDefaults(db) {
     })
   }
 
-  // Initialize default ranks
+  // Initialize default ranks (achievement levels)
   const ranksExist = await db.collection('ranks').countDocuments()
   if (ranksExist === 0) {
     const defaultRanks = [
-      { id: uuidv4(), name: 'Prospect', level: 1, badge: '🔰', description: 'New member in probation', color: '#6b7280' },
-      { id: uuidv4(), name: 'Member', level: 2, badge: '⚔️', description: 'Full patched member', color: '#dc2626' },
-      { id: uuidv4(), name: 'Road Captain', level: 3, badge: '🛣️', description: 'Leads rides and routes', color: '#f59e0b' },
-      { id: uuidv4(), name: 'Sergeant at Arms', level: 4, badge: '🛡️', description: 'Security and discipline', color: '#8b5cf6' },
-      { id: uuidv4(), name: 'Secretary', level: 5, badge: '📋', description: 'Club records keeper', color: '#3b82f6' },
-      { id: uuidv4(), name: 'Treasurer', level: 6, badge: '💰', description: 'Financial manager', color: '#10b981' },
-      { id: uuidv4(), name: 'Vice President', level: 7, badge: '👑', description: 'Second in command', color: '#ec4899' },
-      { id: uuidv4(), name: 'President', level: 8, badge: '🦁', description: 'Club leader', color: '#fbbf24' },
+      { id: uuidv4(), name: 'Gunner', level: 1, badge: '🔫', description: 'Highest achievement rank', color: '#fbbf24' },
+      { id: uuidv4(), name: 'Shotgun', level: 2, badge: '💥', description: 'Elite rider status', color: '#f59e0b' },
+      { id: uuidv4(), name: 'Boulder', level: 3, badge: '🪨', description: 'Veteran rider', color: '#8b5cf6' },
+      { id: uuidv4(), name: 'Iron Clad', level: 4, badge: '🛡️', description: 'Experienced rider', color: '#3b82f6' },
+      { id: uuidv4(), name: 'Iron', level: 5, badge: '⚔️', description: 'Proven rider', color: '#10b981' },
+      { id: uuidv4(), name: 'Rock', level: 6, badge: '🗿', description: 'Established rider', color: '#6b7280' },
+      { id: uuidv4(), name: 'Rubble', level: 7, badge: '🔰', description: 'New member rank', color: '#9ca3af' },
     ]
     await db.collection('ranks').insertMany(defaultRanks)
+  }
+
+  // Initialize default positions (club roles)
+  const positionsExist = await db.collection('positions').countDocuments()
+  if (positionsExist === 0) {
+    const defaultPositions = [
+      { id: uuidv4(), name: 'President', level: 1, badge: '🦁', description: 'Club leader', color: '#fbbf24' },
+      { id: uuidv4(), name: 'Vice President', level: 2, badge: '👑', description: 'Second in command', color: '#ec4899' },
+      { id: uuidv4(), name: 'Secretary', level: 3, badge: '📋', description: 'Club records keeper', color: '#3b82f6' },
+      { id: uuidv4(), name: 'Vice Secretary', level: 4, badge: '📝', description: 'Assistant to Secretary', color: '#6366f1' },
+      { id: uuidv4(), name: 'Treasurer', level: 5, badge: '💰', description: 'Financial manager', color: '#10b981' },
+      { id: uuidv4(), name: 'Road Captain', level: 6, badge: '🛣️', description: 'Leads rides and routes', color: '#f59e0b' },
+      { id: uuidv4(), name: 'Member', level: 7, badge: '⚔️', description: 'Club member', color: '#dc2626' },
+    ]
+    await db.collection('positions').insertMany(defaultPositions)
   }
 
   // Initialize default chapters
