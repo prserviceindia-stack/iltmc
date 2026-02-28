@@ -981,7 +981,7 @@ export default function App() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <Navigation />
+      <Navbar />
       <HeroSection stats={stats} />
       <AboutSection />
       <MembersSection members={members} ranks={ranks} />
