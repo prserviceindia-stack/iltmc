@@ -2073,7 +2073,10 @@ export default function AdminPage() {
   const renderTab = () => {
     switch (activeTab) {
       case 'dashboard': return <DashboardTab token={token} />
+      case 'content': return <ContentTab token={token} />
       case 'members': return <MembersTab token={token} />
+      case 'ranks': return <RanksPositionsTab token={token} />
+      case 'chapters': return <ChaptersTab token={token} />
       case 'rides': return <RidesTab token={token} />
       case 'attendance': return <AttendanceTab token={token} />
       case 'events': return <EventsTab token={token} />
