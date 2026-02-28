@@ -195,7 +195,7 @@ function HeroSection({ stats }) {
           {[
             { icon: Users, value: stats?.totalMembers || 50, label: 'Members' },
             { icon: MapPin, value: stats?.totalRides || 200, label: 'Rides Completed' },
-            { icon: Navigation, value: `${(stats?.totalDistance || 50000).toLocaleString()}+`, label: 'KM Covered' },
+            { icon: Compass, value: `${(stats?.totalDistance || 50000).toLocaleString()}+`, label: 'KM Covered' },
             { icon: Calendar, value: stats?.yearsActive || 12, label: 'Years Strong' },
           ].map((stat, index) => (
             <div key={index} className="glass-effect rounded-xl p-4 md:p-6">
