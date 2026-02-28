@@ -900,8 +900,11 @@ function ContactSection({ content }) {
 }
 
 // Footer
-function Footer() {
+function Footer({ content }) {
   const [email, setEmail] = useState('')
+  const branding = content?.branding || {}
+  const footerContent = content?.footer || {}
+  const socialLinks = content?.social || {}
 
   const handleNewsletter = async (e) => {
     e.preventDefault()
@@ -926,14 +929,14 @@ function Footer() {
         <div className="grid md:grid-cols-4 gap-8 mb-12">
           <div className="md:col-span-2">
             <div className="flex items-center gap-3 mb-4">
-              <img src={LOGO_URL} alt="ILTMC" className="h-16 w-16" />
+              <img src={branding.logo || LOGO_URL} alt="ILTMC" className="h-16 w-16" />
               <div>
-                <p className="text-xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>INTREPIDUS LEONES</p>
-                <p className="text-red-500 text-sm">Tripura Motorcycle Club</p>
+                <p className="text-xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>{branding.clubFullName?.split(' ').slice(0, 2).join(' ') || 'INTREPIDUS LEONES'}</p>
+                <p className="text-red-500 text-sm">{branding.clubFullName?.split(' ').slice(2).join(' ') || 'Tripura Motorcycle Club'}</p>
               </div>
             </div>
             <p className="text-gray-400 mb-4 max-w-md">
-              Brotherhood forged on the open road since 2013. United by the love of motorcycles and the spirit of adventure.
+              {footerContent.description || 'Brotherhood forged on the open road since 2013. United by the love of motorcycles and the spirit of adventure.'}
             </p>
             <form onSubmit={handleNewsletter} className="flex gap-2">
               <Input
