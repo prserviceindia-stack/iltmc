@@ -1380,6 +1380,13 @@ function SEOTab({ token }) {
 // Website Content Tab
 function ContentTab({ token }) {
   const [content, setContent] = useState({
+    branding: { logo: '', clubName: '', clubFullName: '', tagline: '', favicon: '' },
+    stats: { 
+      members: { value: '50', label: 'Members', icon: 'users' },
+      rides: { value: '200', label: 'Rides Completed', icon: 'mapPin' },
+      distance: { value: '50,000+', label: 'KM Covered', icon: 'compass' },
+      years: { value: '13', label: 'Years Strong', icon: 'calendar' }
+    },
     hero: { title: '', subtitle: '', tagline: '', ctaText: '', ctaLink: '', secondaryCtaText: '', secondaryCtaLink: '', backgroundImage: '' },
     about: { badge: '', title: '', subtitle: '', sectionTitle: '', description1: '', description2: '', values: ['', '', ''], image: '' },
     timeline: [],
@@ -1388,7 +1395,7 @@ function ContentTab({ token }) {
     footer: { description: '', copyright: '' }
   })
   const [loading, setLoading] = useState(true)
-  const [activeSection, setActiveSection] = useState('hero')
+  const [activeSection, setActiveSection] = useState('branding')
 
   useEffect(() => {
     fetchContent()
@@ -1418,6 +1425,14 @@ function ContentTab({ token }) {
     }
   }
 
+  const updateBranding = (field, value) => setContent({ ...content, branding: { ...content.branding, [field]: value } })
+  const updateStats = (statKey, field, value) => setContent({ 
+    ...content, 
+    stats: { 
+      ...content.stats, 
+      [statKey]: { ...content.stats?.[statKey], [field]: value } 
+    } 
+  })
   const updateHero = (field, value) => setContent({ ...content, hero: { ...content.hero, [field]: value } })
   const updateAbout = (field, value) => setContent({ ...content, about: { ...content.about, [field]: value } })
   const updateContact = (field, value) => setContent({ ...content, contact: { ...content.contact, [field]: value } })
@@ -1444,6 +1459,8 @@ function ContentTab({ token }) {
   if (loading) return <div className="text-center py-8">Loading...</div>
 
   const sections = [
+    { id: 'branding', label: 'Branding & Logo', icon: Image },
+    { id: 'stats', label: 'Stats Counter', icon: BarChart3 },
     { id: 'hero', label: 'Hero Section', icon: Home },
     { id: 'about', label: 'About Section', icon: Info },
     { id: 'timeline', label: 'Timeline', icon: Clock },
