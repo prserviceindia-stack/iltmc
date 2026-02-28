@@ -20,8 +20,8 @@ const ABOUT_IMG = 'https://images.unsplash.com/photo-1597738620274-dfcefdcde990?
 const RIDES_IMG = 'https://images.unsplash.com/photo-1592766845554-f2b181f8ed7c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHw0fHxtb3RvcmN5Y2xlJTIwcm9hZHxlbnwwfHx8YmxhY2t8MTc3MjI3NzA4MXww&ixlib=rb-4.1.0&q=85'
 const GALLERY_IMG = 'https://images.unsplash.com/photo-1582358680471-143e93a1e234?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwxfHxtb3RvcmN5Y2xlJTIwY2x1YnxlbnwwfHx8YmxhY2t8MTc3MjI3NzA3M3ww&ixlib=rb-4.1.0&q=85'
 
-// Navigation Component
-function Navigation({ activeSection }) {
+// Navbar Component
+function Navbar({ activeSection }) {
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
