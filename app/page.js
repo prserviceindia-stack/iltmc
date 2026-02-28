@@ -979,6 +979,7 @@ export default function App() {
   const [rides, setRides] = useState([])
   const [events, setEvents] = useState([])
   const [ranks, setRanks] = useState([])
+  const [positions, setPositions] = useState([])
 
   useEffect(() => {
     // Fetch public data
@@ -987,6 +988,7 @@ export default function App() {
     fetch('/api/rides/upcoming').then(r => r.json()).then(setRides).catch(console.error)
     fetch('/api/events/upcoming').then(r => r.json()).then(setEvents).catch(console.error)
     fetch('/api/ranks').then(r => r.json()).then(setRanks).catch(console.error)
+    fetch('/api/positions').then(r => r.json()).then(setPositions).catch(console.error)
   }, [])
 
   return (
@@ -994,7 +996,7 @@ export default function App() {
       <Navbar />
       <HeroSection stats={stats} />
       <AboutSection />
-      <MembersSection members={members} ranks={ranks} />
+      <MembersSection members={members} ranks={ranks} positions={positions} />
       <RidesSection rides={rides} />
       <EventsSection events={events} />
       <GallerySection />
