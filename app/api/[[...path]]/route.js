@@ -295,6 +295,13 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json(cleanedChapters))
     }
 
+    // Get positions public
+    if (route === '/positions' && method === 'GET') {
+      const positions = await db.collection('positions').find({}).sort({ level: 1 }).toArray()
+      const cleanedPositions = positions.map(({ _id, ...rest }) => rest)
+      return handleCORS(NextResponse.json(cleanedPositions))
+    }
+
     // ==================== AUTH ROUTES ====================
     
     // Login
