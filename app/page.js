@@ -53,10 +53,10 @@ function Navbar({ content }) {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           <a href="#home" className="flex items-center gap-3">
-            <img src={LOGO_URL} alt="ILTMC" className="h-14 w-14 object-contain" />
+            <img src={content?.branding?.logo || LOGO_URL} alt="ILTMC" className="h-14 w-14 object-contain" />
             <div className="hidden sm:block">
-              <p className="font-bold text-lg tracking-wider" style={{ fontFamily: 'Oswald, sans-serif' }}>ILTMC</p>
-              <p className="text-xs text-red-500">Est. 2013</p>
+              <p className="font-bold text-lg tracking-wider" style={{ fontFamily: 'Oswald, sans-serif' }}>{content?.branding?.clubName || 'ILTMC'}</p>
+              <p className="text-xs text-red-500">{content?.branding?.tagline || 'Est. 2013'}</p>
             </div>
           </a>
 
