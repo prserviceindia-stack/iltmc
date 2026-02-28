@@ -688,6 +688,218 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json({ message: 'Contact marked as read' }))
     }
 
+    // ==================== WEBSITE CONTENT MANAGEMENT ====================
+    
+    // Get website content
+    if (route === '/admin/content' && method === 'GET') {
+      const user = await authenticateRequest(request)
+      if (!user) return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+
+      const content = await db.collection('website_content').findOne({ key: 'main' })
+      if (!content) {
+        // Return default content
+        return handleCORS(NextResponse.json({
+          hero: {
+            title: 'INTREPIDUS LEONES',
+            subtitle: 'TRIPURA MOTORCYCLE CLUB',
+            tagline: 'Brotherhood • Freedom • Respect | Est. 2013',
+            ctaText: 'JOIN THE PRIDE',
+            ctaLink: '#join',
+            secondaryCtaText: 'LEARN MORE',
+            secondaryCtaLink: '#about',
+            backgroundImage: 'https://images.unsplash.com/photo-1542227844-5e56c7c2687d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwxfHxtb3RvcmN5Y2xlJTIwcm9hZHxlbnwwfHx8YmxhY2t8MTc3MjI3NzA4MXww&ixlib=rb-4.1.0&q=85'
+          },
+          about: {
+            badge: 'OUR STORY',
+            title: 'ABOUT ILTMC',
+            subtitle: 'A brotherhood forged on the open road, united by the love of motorcycles and the spirit of adventure.',
+            sectionTitle: 'INTREPIDUS LEONES - The Fearless Lions',
+            description1: 'Founded in 2013 in Agartala, Tripura, ILTMC (Intrepidus Leones Tripura Motorcycle Club) represents a brotherhood of passionate riders who share an unbreakable bond through their love for motorcycles and the open road.',
+            description2: 'Our name, derived from Latin, means "Fearless Lions" - embodying the courage, strength, and pride that defines every member of our club. We ride together, stand together, and grow together.',
+            values: ['Brotherhood', 'Freedom', 'Respect'],
+            image: 'https://images.unsplash.com/photo-1597738620274-dfcefdcde990?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwyfHxtb3RvcmN5Y2xlJTIwY2x1YnxlbnwwfHx8YmxhY2t8MTc3MjI3NzA3M3ww&ixlib=rb-4.1.0&q=85'
+          },
+          timeline: [
+            { year: '2013', title: 'Foundation', description: 'ILTMC was founded by passionate riders in Tripura' },
+            { year: '2015', title: 'First State Ride', description: 'Organized first statewide motorcycle rally' },
+            { year: '2018', title: 'National Recognition', description: 'Joined the national motorcycle club federation' },
+            { year: '2020', title: 'Community Service', description: 'Started charity rides and community programs' },
+            { year: '2023', title: '10 Year Anniversary', description: 'Celebrated a decade of brotherhood and riding' }
+          ],
+          contact: {
+            badge: 'GET IN TOUCH',
+            title: 'CONTACT US',
+            address: 'Agartala, Tripura, India',
+            email: 'contact@iltmc.com',
+            phone: '+91 XXXXXXXXXX',
+            whatsapp: '+91 XXXXXXXXXX'
+          },
+          social: {
+            facebook: '',
+            instagram: '',
+            youtube: ''
+          },
+          footer: {
+            description: 'Brotherhood forged on the open road since 2013. United by the love of motorcycles and the spirit of adventure.',
+            copyright: '© {year} ILTMC - Intrepidus Leones Tripura Motorcycle Club. All rights reserved.'
+          }
+        }))
+      }
+      const { _id, ...cleanedContent } = content
+      return handleCORS(NextResponse.json(cleanedContent))
+    }
+
+    // Update website content
+    if (route === '/admin/content' && method === 'PUT') {
+      const user = await authenticateRequest(request)
+      if (!user || !['super_admin', 'admin'].includes(user.role)) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const body = await request.json()
+      await db.collection('website_content').updateOne(
+        { key: 'main' },
+        { $set: { ...body, key: 'main', updatedAt: new Date() } },
+        { upsert: true }
+      )
+      return handleCORS(NextResponse.json({ message: 'Content updated successfully' }))
+    }
+
+    // Get public website content
+    if (route === '/content' && method === 'GET') {
+      const content = await db.collection('website_content').findOne({ key: 'main' })
+      if (!content) {
+        return handleCORS(NextResponse.json({
+          hero: {
+            title: 'INTREPIDUS LEONES',
+            subtitle: 'TRIPURA MOTORCYCLE CLUB',
+            tagline: 'Brotherhood • Freedom • Respect | Est. 2013'
+          },
+          about: {
+            title: 'ABOUT ILTMC',
+            subtitle: 'A brotherhood forged on the open road'
+          },
+          contact: {
+            address: 'Agartala, Tripura, India',
+            email: 'contact@iltmc.com'
+          }
+        }))
+      }
+      const { _id, key, updatedAt, ...publicContent } = content
+      return handleCORS(NextResponse.json(publicContent))
+    }
+
+    // ==================== RANKS MANAGEMENT ====================
+    
+    // Update rank (admin)
+    if (route.startsWith('/admin/ranks/') && method === 'PUT') {
+      const user = await authenticateRequest(request)
+      if (!user || !['super_admin', 'admin'].includes(user.role)) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+      const rankId = path[2]
+      const body = await request.json()
+      await db.collection('ranks').updateOne({ id: rankId }, { $set: body })
+      return handleCORS(NextResponse.json({ message: 'Rank updated' }))
+    }
+
+    // Create rank (admin)
+    if (route === '/admin/ranks' && method === 'POST') {
+      const user = await authenticateRequest(request)
+      if (!user || !['super_admin', 'admin'].includes(user.role)) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+      const body = await request.json()
+      const rank = { id: uuidv4(), ...body }
+      await db.collection('ranks').insertOne(rank)
+      return handleCORS(NextResponse.json(rank, { status: 201 }))
+    }
+
+    // Delete rank (admin)
+    if (route.startsWith('/admin/ranks/') && method === 'DELETE') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'super_admin') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+      const rankId = path[2]
+      await db.collection('ranks').deleteOne({ id: rankId })
+      return handleCORS(NextResponse.json({ message: 'Rank deleted' }))
+    }
+
+    // ==================== POSITIONS MANAGEMENT ====================
+    
+    // Update position (admin)
+    if (route.startsWith('/admin/positions/') && method === 'PUT') {
+      const user = await authenticateRequest(request)
+      if (!user || !['super_admin', 'admin'].includes(user.role)) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+      const positionId = path[2]
+      const body = await request.json()
+      await db.collection('positions').updateOne({ id: positionId }, { $set: body })
+      return handleCORS(NextResponse.json({ message: 'Position updated' }))
+    }
+
+    // Create position (admin)
+    if (route === '/admin/positions' && method === 'POST') {
+      const user = await authenticateRequest(request)
+      if (!user || !['super_admin', 'admin'].includes(user.role)) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+      const body = await request.json()
+      const position = { id: uuidv4(), ...body }
+      await db.collection('positions').insertOne(position)
+      return handleCORS(NextResponse.json(position, { status: 201 }))
+    }
+
+    // Delete position (admin)
+    if (route.startsWith('/admin/positions/') && method === 'DELETE') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'super_admin') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+      const positionId = path[2]
+      await db.collection('positions').deleteOne({ id: positionId })
+      return handleCORS(NextResponse.json({ message: 'Position deleted' }))
+    }
+
+    // ==================== CHAPTERS MANAGEMENT ====================
+    
+    // Update chapter (admin)
+    if (route.startsWith('/admin/chapters/') && method === 'PUT') {
+      const user = await authenticateRequest(request)
+      if (!user || !['super_admin', 'admin'].includes(user.role)) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+      const chapterId = path[2]
+      const body = await request.json()
+      await db.collection('chapters').updateOne({ id: chapterId }, { $set: body })
+      return handleCORS(NextResponse.json({ message: 'Chapter updated' }))
+    }
+
+    // Create chapter (admin)
+    if (route === '/admin/chapters' && method === 'POST') {
+      const user = await authenticateRequest(request)
+      if (!user || !['super_admin', 'admin'].includes(user.role)) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+      const body = await request.json()
+      const chapter = { id: uuidv4(), ...body, createdAt: new Date() }
+      await db.collection('chapters').insertOne(chapter)
+      return handleCORS(NextResponse.json(chapter, { status: 201 }))
+    }
+
+    // Delete chapter (admin)
+    if (route.startsWith('/admin/chapters/') && method === 'DELETE') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'super_admin') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+      const chapterId = path[2]
+      await db.collection('chapters').deleteOne({ id: chapterId })
+      return handleCORS(NextResponse.json({ message: 'Chapter deleted' }))
+    }
+
     // Route not found
     return handleCORS(NextResponse.json(
       { error: `Route ${route} not found` }, 
