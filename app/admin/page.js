@@ -1377,6 +1377,653 @@ function SEOTab({ token }) {
   )
 }
 
+// Website Content Tab
+function ContentTab({ token }) {
+  const [content, setContent] = useState({
+    hero: { title: '', subtitle: '', tagline: '', ctaText: '', ctaLink: '', secondaryCtaText: '', secondaryCtaLink: '', backgroundImage: '' },
+    about: { badge: '', title: '', subtitle: '', sectionTitle: '', description1: '', description2: '', values: ['', '', ''], image: '' },
+    timeline: [],
+    contact: { badge: '', title: '', address: '', email: '', phone: '', whatsapp: '' },
+    social: { facebook: '', instagram: '', youtube: '' },
+    footer: { description: '', copyright: '' }
+  })
+  const [loading, setLoading] = useState(true)
+  const [activeSection, setActiveSection] = useState('hero')
+
+  useEffect(() => {
+    fetchContent()
+  }, [])
+
+  const fetchContent = async () => {
+    try {
+      const res = await fetch('/api/admin/content', { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      setContent(data)
+    } catch (error) {
+      console.error(error)
+    }
+    setLoading(false)
+  }
+
+  const handleSave = async () => {
+    try {
+      await fetch('/api/admin/content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(content)
+      })
+      toast.success('Content saved successfully!')
+    } catch (error) {
+      toast.error('Failed to save content')
+    }
+  }
+
+  const updateHero = (field, value) => setContent({ ...content, hero: { ...content.hero, [field]: value } })
+  const updateAbout = (field, value) => setContent({ ...content, about: { ...content.about, [field]: value } })
+  const updateContact = (field, value) => setContent({ ...content, contact: { ...content.contact, [field]: value } })
+  const updateSocial = (field, value) => setContent({ ...content, social: { ...content.social, [field]: value } })
+  const updateFooter = (field, value) => setContent({ ...content, footer: { ...content.footer, [field]: value } })
+
+  const addTimelineItem = () => {
+    setContent({
+      ...content,
+      timeline: [...(content.timeline || []), { year: '', title: '', description: '' }]
+    })
+  }
+
+  const updateTimeline = (index, field, value) => {
+    const newTimeline = [...content.timeline]
+    newTimeline[index] = { ...newTimeline[index], [field]: value }
+    setContent({ ...content, timeline: newTimeline })
+  }
+
+  const removeTimeline = (index) => {
+    setContent({ ...content, timeline: content.timeline.filter((_, i) => i !== index) })
+  }
+
+  if (loading) return <div className="text-center py-8">Loading...</div>
+
+  const sections = [
+    { id: 'hero', label: 'Hero Section', icon: Home },
+    { id: 'about', label: 'About Section', icon: Info },
+    { id: 'timeline', label: 'Timeline', icon: Clock },
+    { id: 'contact', label: 'Contact Info', icon: Phone },
+    { id: 'social', label: 'Social Media', icon: Globe },
+    { id: 'footer', label: 'Footer', icon: FileText }
+  ]
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>Website Content</h1>
+          <p className="text-gray-400">Manage all website sections</p>
+        </div>
+        <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">
+          Save All Changes
+        </Button>
+      </div>
+
+      <div className="grid lg:grid-cols-4 gap-6">
+        {/* Section Navigator */}
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-lg">Sections</CardTitle>
+          </CardHeader>
+          <CardContent className="p-2">
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  activeSection === section.id ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-zinc-800'
+                }`}
+              >
+                <section.icon size={18} />
+                <span className="text-sm">{section.label}</span>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Section Editor */}
+        <div className="lg:col-span-3 space-y-4">
+          {/* Hero Section */}
+          {activeSection === 'hero' && (
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Home size={20} /> Hero Section</CardTitle>
+                <CardDescription>Edit the main hero banner on homepage</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Main Title</Label>
+                    <Input value={content.hero?.title || ''} onChange={(e) => updateHero('title', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="INTREPIDUS LEONES" />
+                  </div>
+                  <div>
+                    <Label>Subtitle</Label>
+                    <Input value={content.hero?.subtitle || ''} onChange={(e) => updateHero('subtitle', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="TRIPURA MOTORCYCLE CLUB" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Tagline</Label>
+                  <Input value={content.hero?.tagline || ''} onChange={(e) => updateHero('tagline', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="Brotherhood • Freedom • Respect | Est. 2013" />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Primary Button Text</Label>
+                    <Input value={content.hero?.ctaText || ''} onChange={(e) => updateHero('ctaText', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="JOIN THE PRIDE" />
+                  </div>
+                  <div>
+                    <Label>Primary Button Link</Label>
+                    <Input value={content.hero?.ctaLink || ''} onChange={(e) => updateHero('ctaLink', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="#join" />
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Secondary Button Text</Label>
+                    <Input value={content.hero?.secondaryCtaText || ''} onChange={(e) => updateHero('secondaryCtaText', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="LEARN MORE" />
+                  </div>
+                  <div>
+                    <Label>Secondary Button Link</Label>
+                    <Input value={content.hero?.secondaryCtaLink || ''} onChange={(e) => updateHero('secondaryCtaLink', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="#about" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Background Image URL</Label>
+                  <Input value={content.hero?.backgroundImage || ''} onChange={(e) => updateHero('backgroundImage', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="https://..." />
+                  {content.hero?.backgroundImage && (
+                    <img src={content.hero.backgroundImage} alt="Preview" className="mt-2 h-32 w-full object-cover rounded-lg" />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* About Section */}
+          {activeSection === 'about' && (
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Info size={20} /> About Section</CardTitle>
+                <CardDescription>Edit the about us section content</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Badge Text</Label>
+                    <Input value={content.about?.badge || ''} onChange={(e) => updateAbout('badge', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="OUR STORY" />
+                  </div>
+                  <div>
+                    <Label>Section Title</Label>
+                    <Input value={content.about?.title || ''} onChange={(e) => updateAbout('title', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="ABOUT ILTMC" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Section Subtitle</Label>
+                  <Textarea value={content.about?.subtitle || ''} onChange={(e) => updateAbout('subtitle', e.target.value)} className="bg-zinc-800 border-zinc-700" rows={2} />
+                </div>
+                <div>
+                  <Label>Content Title</Label>
+                  <Input value={content.about?.sectionTitle || ''} onChange={(e) => updateAbout('sectionTitle', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="INTREPIDUS LEONES - The Fearless Lions" />
+                </div>
+                <div>
+                  <Label>First Paragraph</Label>
+                  <Textarea value={content.about?.description1 || ''} onChange={(e) => updateAbout('description1', e.target.value)} className="bg-zinc-800 border-zinc-700" rows={3} />
+                </div>
+                <div>
+                  <Label>Second Paragraph</Label>
+                  <Textarea value={content.about?.description2 || ''} onChange={(e) => updateAbout('description2', e.target.value)} className="bg-zinc-800 border-zinc-700" rows={3} />
+                </div>
+                <div>
+                  <Label>Core Values (3)</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[0, 1, 2].map((i) => (
+                      <Input key={i} value={content.about?.values?.[i] || ''} onChange={(e) => {
+                        const newValues = [...(content.about?.values || ['', '', ''])]
+                        newValues[i] = e.target.value
+                        updateAbout('values', newValues)
+                      }} className="bg-zinc-800 border-zinc-700" placeholder={['Brotherhood', 'Freedom', 'Respect'][i]} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label>About Image URL</Label>
+                  <Input value={content.about?.image || ''} onChange={(e) => updateAbout('image', e.target.value)} className="bg-zinc-800 border-zinc-700" />
+                  {content.about?.image && (
+                    <img src={content.about.image} alt="Preview" className="mt-2 h-32 w-full object-cover rounded-lg" />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Timeline Section */}
+          {activeSection === 'timeline' && (
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Clock size={20} /> Timeline</CardTitle>
+                <CardDescription>Edit club history milestones</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(content.timeline || []).map((item, index) => (
+                  <div key={index} className="p-4 bg-zinc-800/50 rounded-lg space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-red-500">Milestone {index + 1}</span>
+                      <Button size="sm" variant="destructive" onClick={() => removeTimeline(index)}>
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-3">
+                      <div>
+                        <Label>Year</Label>
+                        <Input value={item.year} onChange={(e) => updateTimeline(index, 'year', e.target.value)} className="bg-zinc-700 border-zinc-600" placeholder="2013" />
+                      </div>
+                      <div className="col-span-3">
+                        <Label>Title</Label>
+                        <Input value={item.title} onChange={(e) => updateTimeline(index, 'title', e.target.value)} className="bg-zinc-700 border-zinc-600" placeholder="Foundation" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Description</Label>
+                      <Input value={item.description} onChange={(e) => updateTimeline(index, 'description', e.target.value)} className="bg-zinc-700 border-zinc-600" placeholder="ILTMC was founded..." />
+                    </div>
+                  </div>
+                ))}
+                <Button onClick={addTimelineItem} variant="outline" className="w-full">
+                  <Plus size={16} className="mr-2" /> Add Timeline Item
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Contact Section */}
+          {activeSection === 'contact' && (
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Phone size={20} /> Contact Information</CardTitle>
+                <CardDescription>Edit contact details displayed on website</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Badge Text</Label>
+                    <Input value={content.contact?.badge || ''} onChange={(e) => updateContact('badge', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="GET IN TOUCH" />
+                  </div>
+                  <div>
+                    <Label>Section Title</Label>
+                    <Input value={content.contact?.title || ''} onChange={(e) => updateContact('title', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="CONTACT US" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Address</Label>
+                  <Input value={content.contact?.address || ''} onChange={(e) => updateContact('address', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="Agartala, Tripura, India" />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Email</Label>
+                    <Input value={content.contact?.email || ''} onChange={(e) => updateContact('email', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="contact@iltmc.com" />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <Input value={content.contact?.phone || ''} onChange={(e) => updateContact('phone', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="+91 XXXXXXXXXX" />
+                  </div>
+                </div>
+                <div>
+                  <Label>WhatsApp Number</Label>
+                  <Input value={content.contact?.whatsapp || ''} onChange={(e) => updateContact('whatsapp', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="+91 XXXXXXXXXX" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Social Media */}
+          {activeSection === 'social' && (
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Globe size={20} /> Social Media Links</CardTitle>
+                <CardDescription>Add your social media profile URLs</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Facebook Page URL</Label>
+                  <Input value={content.social?.facebook || ''} onChange={(e) => updateSocial('facebook', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="https://facebook.com/iltmc" />
+                </div>
+                <div>
+                  <Label>Instagram Profile URL</Label>
+                  <Input value={content.social?.instagram || ''} onChange={(e) => updateSocial('instagram', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="https://instagram.com/iltmc" />
+                </div>
+                <div>
+                  <Label>YouTube Channel URL</Label>
+                  <Input value={content.social?.youtube || ''} onChange={(e) => updateSocial('youtube', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="https://youtube.com/@iltmc" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Footer */}
+          {activeSection === 'footer' && (
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><FileText size={20} /> Footer Content</CardTitle>
+                <CardDescription>Edit footer text and copyright</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Footer Description</Label>
+                  <Textarea value={content.footer?.description || ''} onChange={(e) => updateFooter('description', e.target.value)} className="bg-zinc-800 border-zinc-700" rows={3} placeholder="Brotherhood forged on the open road since 2013..." />
+                </div>
+                <div>
+                  <Label>Copyright Text</Label>
+                  <Input value={content.footer?.copyright || ''} onChange={(e) => updateFooter('copyright', e.target.value)} className="bg-zinc-800 border-zinc-700" placeholder="© {year} ILTMC. All rights reserved." />
+                  <p className="text-xs text-gray-500 mt-1">Use {'{year}'} for dynamic year</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Ranks & Positions Tab
+function RanksPositionsTab({ token }) {
+  const [ranks, setRanks] = useState([])
+  const [positions, setPositions] = useState([])
+  const [showDialog, setShowDialog] = useState(false)
+  const [dialogType, setDialogType] = useState('rank')
+  const [editingItem, setEditingItem] = useState(null)
+  const [formData, setFormData] = useState({ name: '', level: 1, badge: '', description: '', color: '#dc2626' })
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    const [ranksRes, positionsRes] = await Promise.all([
+      fetch('/api/ranks'),
+      fetch('/api/positions')
+    ])
+    setRanks(await ranksRes.json())
+    setPositions(await positionsRes.json())
+  }
+
+  const openAdd = (type) => {
+    setDialogType(type)
+    setEditingItem(null)
+    setFormData({ name: '', level: 1, badge: '', description: '', color: '#dc2626' })
+    setShowDialog(true)
+  }
+
+  const openEdit = (item, type) => {
+    setDialogType(type)
+    setEditingItem(item)
+    setFormData({ name: item.name, level: item.level, badge: item.badge, description: item.description, color: item.color })
+    setShowDialog(true)
+  }
+
+  const handleSave = async () => {
+    const endpoint = dialogType === 'rank' ? 'ranks' : 'positions'
+    const url = editingItem ? `/api/admin/${endpoint}/${editingItem.id}` : `/api/admin/${endpoint}`
+    const method = editingItem ? 'PUT' : 'POST'
+
+    await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(formData)
+    })
+    toast.success(editingItem ? 'Updated successfully' : 'Created successfully')
+    setShowDialog(false)
+    fetchData()
+  }
+
+  const handleDelete = async (id, type) => {
+    if (!confirm('Are you sure?')) return
+    const endpoint = type === 'rank' ? 'ranks' : 'positions'
+    await fetch(`/api/admin/${endpoint}/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    toast.success('Deleted successfully')
+    fetchData()
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>Ranks & Positions</h1>
+        <p className="text-gray-400">Manage member ranks and club positions</p>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Ranks */}
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Ranks (Achievement Levels)</CardTitle>
+              <CardDescription>Member achievement progression</CardDescription>
+            </div>
+            <Button size="sm" onClick={() => openAdd('rank')} className="bg-red-600 hover:bg-red-700">
+              <Plus size={14} className="mr-1" /> Add
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {ranks.map((rank) => (
+                <div key={rank.id} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{rank.badge}</span>
+                    <div>
+                      <p className="font-medium">{rank.name}</p>
+                      <p className="text-xs text-gray-500">Level {rank.level} • {rank.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(rank, 'rank')}><Edit size={14} /></Button>
+                    <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDelete(rank.id, 'rank')}><Trash2 size={14} /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Positions */}
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Positions (Club Roles)</CardTitle>
+              <CardDescription>Official club positions</CardDescription>
+            </div>
+            <Button size="sm" onClick={() => openAdd('position')} className="bg-red-600 hover:bg-red-700">
+              <Plus size={14} className="mr-1" /> Add
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {positions.map((position) => (
+                <div key={position.id} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{position.badge}</span>
+                    <div>
+                      <p className="font-medium">{position.name}</p>
+                      <p className="text-xs text-gray-500">Level {position.level} • {position.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(position, 'position')}><Edit size={14} /></Button>
+                    <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDelete(position.id, 'position')}><Trash2 size={14} /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="bg-zinc-900 border-zinc-800">
+          <DialogHeader>
+            <DialogTitle>{editingItem ? 'Edit' : 'Add'} {dialogType === 'rank' ? 'Rank' : 'Position'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Name</Label>
+                <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-zinc-800 border-zinc-700" />
+              </div>
+              <div>
+                <Label>Level</Label>
+                <Input type="number" value={formData.level} onChange={(e) => setFormData({...formData, level: parseInt(e.target.value)})} className="bg-zinc-800 border-zinc-700" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Badge (Emoji)</Label>
+                <Input value={formData.badge} onChange={(e) => setFormData({...formData, badge: e.target.value})} className="bg-zinc-800 border-zinc-700" placeholder="🔫" />
+              </div>
+              <div>
+                <Label>Color</Label>
+                <Input type="color" value={formData.color} onChange={(e) => setFormData({...formData, color: e.target.value})} className="bg-zinc-800 border-zinc-700 h-10" />
+              </div>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Input value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="bg-zinc-800 border-zinc-700" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
+            <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// Chapters Tab
+function ChaptersTab({ token }) {
+  const [chapters, setChapters] = useState([])
+  const [showDialog, setShowDialog] = useState(false)
+  const [editingChapter, setEditingChapter] = useState(null)
+  const [formData, setFormData] = useState({ name: '', city: '', state: 'Tripura', isMain: false })
+
+  useEffect(() => {
+    fetchChapters()
+  }, [])
+
+  const fetchChapters = async () => {
+    const res = await fetch('/api/chapters')
+    setChapters(await res.json())
+  }
+
+  const openAdd = () => {
+    setEditingChapter(null)
+    setFormData({ name: '', city: '', state: 'Tripura', isMain: false })
+    setShowDialog(true)
+  }
+
+  const openEdit = (chapter) => {
+    setEditingChapter(chapter)
+    setFormData({ name: chapter.name, city: chapter.city, state: chapter.state, isMain: chapter.isMain })
+    setShowDialog(true)
+  }
+
+  const handleSave = async () => {
+    const url = editingChapter ? `/api/admin/chapters/${editingChapter.id}` : '/api/admin/chapters'
+    const method = editingChapter ? 'PUT' : 'POST'
+
+    await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(formData)
+    })
+    toast.success(editingChapter ? 'Chapter updated' : 'Chapter created')
+    setShowDialog(false)
+    fetchChapters()
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this chapter?')) return
+    await fetch(`/api/admin/chapters/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    toast.success('Chapter deleted')
+    fetchChapters()
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>Chapters</h1>
+          <p className="text-gray-400">Manage club chapters and locations</p>
+        </div>
+        <Button onClick={openAdd} className="bg-red-600 hover:bg-red-700">
+          <Plus size={16} className="mr-2" /> Add Chapter
+        </Button>
+      </div>
+
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {chapters.map((chapter) => (
+          <Card key={chapter.id} className="bg-zinc-900/50 border-zinc-800">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-bold">{chapter.name}</h3>
+                    {chapter.isMain && <Badge className="bg-red-600">Main</Badge>}
+                  </div>
+                  <p className="text-gray-400">{chapter.city}, {chapter.state}</p>
+                </div>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="ghost" onClick={() => openEdit(chapter)}><Edit size={14} /></Button>
+                  <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDelete(chapter.id)}><Trash2 size={14} /></Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="bg-zinc-900 border-zinc-800">
+          <DialogHeader>
+            <DialogTitle>{editingChapter ? 'Edit' : 'Add'} Chapter</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Chapter Name</Label>
+              <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-zinc-800 border-zinc-700" placeholder="Agartala" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>City</Label>
+                <Input value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} className="bg-zinc-800 border-zinc-700" />
+              </div>
+              <div>
+                <Label>State</Label>
+                <Input value={formData.state} onChange={(e) => setFormData({...formData, state: e.target.value})} className="bg-zinc-800 border-zinc-700" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={formData.isMain} onCheckedChange={(v) => setFormData({...formData, isMain: v})} />
+              <Label>Main Chapter</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
+            <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
 // Main Admin Page
 export default function AdminPage() {
   const [user, setUser] = useState(null)
