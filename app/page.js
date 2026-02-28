@@ -21,7 +21,7 @@ const RIDES_IMG = 'https://images.unsplash.com/photo-1592766845554-f2b181f8ed7c?
 const GALLERY_IMG = 'https://images.unsplash.com/photo-1582358680471-143e93a1e234?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwxfHxtb3RvcmN5Y2xlJTIwY2x1YnxlbnwwfHx8YmxhY2t8MTc3MjI3NzA3M3ww&ixlib=rb-4.1.0&q=85'
 
 // Navbar Component
-function Navbar({ activeSection }) {
+function Navbar({ content }) {
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
