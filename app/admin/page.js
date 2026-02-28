@@ -316,12 +316,13 @@ function DashboardTab({ token }) {
 function MembersTab({ token }) {
   const [members, setMembers] = useState([])
   const [ranks, setRanks] = useState([])
+  const [positions, setPositions] = useState([])
   const [chapters, setChapters] = useState([])
   const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
   const [formData, setFormData] = useState({
-    name: '', roadName: '', rank: '', chapter: '', bike: '', status: 'prospect', phone: '', email: ''
+    name: '', roadName: '', rank: '', position: '', chapter: '', bike: '', status: 'active', phone: '', email: ''
   })
 
   useEffect(() => {
@@ -330,13 +331,15 @@ function MembersTab({ token }) {
 
   const fetchData = async () => {
     try {
-      const [membersRes, ranksRes, chaptersRes] = await Promise.all([
+      const [membersRes, ranksRes, positionsRes, chaptersRes] = await Promise.all([
         fetch('/api/admin/members', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/ranks'),
+        fetch('/api/positions'),
         fetch('/api/chapters')
       ])
       setMembers(await membersRes.json())
       setRanks(await ranksRes.json())
+      setPositions(await positionsRes.json())
       setChapters(await chaptersRes.json())
     } catch (error) {
       console.error(error)
@@ -364,7 +367,7 @@ function MembersTab({ token }) {
         toast.success(editingMember ? 'Member updated' : 'Member added')
         setShowDialog(false)
         setEditingMember(null)
-        setFormData({ name: '', roadName: '', rank: '', chapter: '', bike: '', status: 'prospect', phone: '', email: '' })
+        setFormData({ name: '', roadName: '', rank: '', position: '', chapter: '', bike: '', status: 'active', phone: '', email: '' })
         fetchData()
       }
     } catch (error) {
@@ -392,9 +395,10 @@ function MembersTab({ token }) {
       name: member.name || '',
       roadName: member.roadName || '',
       rank: member.rank || '',
+      position: member.position || '',
       chapter: member.chapter || '',
       bike: member.bike || '',
-      status: member.status || 'prospect',
+      status: member.status || 'active',
       phone: member.phone || '',
       email: member.email || ''
     })
@@ -403,7 +407,7 @@ function MembersTab({ token }) {
 
   const openAdd = () => {
     setEditingMember(null)
-    setFormData({ name: '', roadName: '', rank: '', chapter: '', bike: '', status: 'prospect', phone: '', email: '' })
+    setFormData({ name: '', roadName: '', rank: '', position: '', chapter: '', bike: '', status: 'active', phone: '', email: '' })
     setShowDialog(true)
   }
 
@@ -427,8 +431,8 @@ function MembersTab({ token }) {
                 <tr>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Member</th>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Rank</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-400">Position</th>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Chapter</th>
-                  <th className="text-left p-4 text-sm font-medium text-gray-400">Bike</th>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Status</th>
                   <th className="text-right p-4 text-sm font-medium text-gray-400">Actions</th>
                 </tr>
@@ -439,7 +443,7 @@ function MembersTab({ token }) {
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center text-lg">
-                          {ranks.find(r => r.name === member.rank)?.badge || '⚔️'}
+                          {positions.find(p => p.name === member.position)?.badge || ranks.find(r => r.name === member.rank)?.badge || '⚔️'}
                         </div>
                         <div>
                           <p className="font-medium">{member.name}</p>
@@ -447,9 +451,17 @@ function MembersTab({ token }) {
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-gray-300">{member.rank || 'N/A'}</td>
+                    <td className="p-4">
+                      <Badge variant="outline" className="border-yellow-500/50 text-yellow-500">
+                        {ranks.find(r => r.name === member.rank)?.badge} {member.rank || 'N/A'}
+                      </Badge>
+                    </td>
+                    <td className="p-4">
+                      <Badge variant="outline" className="border-red-500/50 text-red-400">
+                        {positions.find(p => p.name === member.position)?.badge} {member.position || 'N/A'}
+                      </Badge>
+                    </td>
                     <td className="p-4 text-gray-300">{member.chapter || 'N/A'}</td>
-                    <td className="p-4 text-gray-300">{member.bike || 'N/A'}</td>
                     <td className="p-4">
                       <Badge className={
                         member.status === 'active' ? 'bg-green-600' :
@@ -486,7 +498,7 @@ function MembersTab({ token }) {
 
       {/* Member Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-lg">
+        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingMember ? 'Edit Member' : 'Add Member'}</DialogTitle>
           </DialogHeader>
@@ -511,7 +523,7 @@ function MembersTab({ token }) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Rank</Label>
+                <Label>Rank (Achievement Level)</Label>
                 <Select value={formData.rank} onValueChange={(v) => setFormData({...formData, rank: v})}>
                   <SelectTrigger className="bg-zinc-800 border-zinc-700">
                     <SelectValue placeholder="Select rank" />
@@ -524,6 +536,21 @@ function MembersTab({ token }) {
                 </Select>
               </div>
               <div>
+                <Label>Position (Club Role)</Label>
+                <Select value={formData.position} onValueChange={(v) => setFormData({...formData, position: v})}>
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                    <SelectValue placeholder="Select position" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                    {positions.map(p => (
+                      <SelectItem key={p.id} value={p.name}>{p.badge} {p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <Label>Chapter</Label>
                 <Select value={formData.chapter} onValueChange={(v) => setFormData({...formData, chapter: v})}>
                   <SelectTrigger className="bg-zinc-800 border-zinc-700">
@@ -533,6 +560,20 @@ function MembersTab({ token }) {
                     {chapters.map(c => (
                       <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="prospect">Prospect</SelectItem>
+                    <SelectItem value="veteran">Veteran</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -564,20 +605,6 @@ function MembersTab({ token }) {
                   className="bg-zinc-800 border-zinc-700"
                 />
               </div>
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
-                <SelectTrigger className="bg-zinc-800 border-zinc-700">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-800 border-zinc-700">
-                  <SelectItem value="prospect">Prospect</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="veteran">Veteran</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <DialogFooter>
