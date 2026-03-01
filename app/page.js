@@ -177,7 +177,7 @@ function HeroSection({ stats, content }) {
           transition={{ delay: 0.9, duration: 0.8 }}
           className="flex flex-wrap justify-center gap-4"
         >
-          <a href={heroContent.ctaLink || '#join'}>
+          <a href="/member">
             <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white px-8 py-6 text-lg glow-red">
               {heroContent.ctaText || 'JOIN THE PRIDE'} <ArrowRight className="ml-2" />
             </Button>
