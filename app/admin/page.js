@@ -27,8 +27,8 @@ const LOGO_URL = 'https://customer-assets.emergentagent.com/job_9bab05d4-0d45-4f
 
 // Login Component
 function LoginForm({ onLogin }) {
-  const [email, setEmail] = useState('admin@iltmc.com')
-  const [password, setPassword] = useState('admin123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -79,6 +79,7 @@ function LoginForm({ onLogin }) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="bg-zinc-800 border-zinc-700"
+                  placeholder="Enter your email"
                   required
                 />
               </div>
@@ -89,15 +90,13 @@ function LoginForm({ onLogin }) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="bg-zinc-800 border-zinc-700"
+                  placeholder="Enter your password"
                   required
                 />
               </div>
               <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
-              <p className="text-xs text-center text-gray-500 mt-4">
-                Default: admin@iltmc.com / admin123
-              </p>
             </form>
           </CardContent>
         </Card>
