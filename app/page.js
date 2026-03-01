@@ -38,8 +38,8 @@ function Navbar({ content }) {
     { label: 'Rides', href: '#rides' },
     { label: 'Events', href: '#events' },
     { label: 'Gallery', href: '#gallery' },
-    { label: 'Join Us', href: '#join' },
     { label: 'Contact', href: '#contact' },
+    { label: 'Member Login', href: '/member' },
   ]
 
   return (
