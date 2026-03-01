@@ -481,6 +481,353 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json({ message: 'Password changed successfully' }))
     }
 
+    // ==================== CAPTCHA ROUTES ====================
+    
+    // Generate captcha
+    if (route === '/captcha/generate' && method === 'GET') {
+      const captcha = generateCaptcha()
+      return handleCORS(NextResponse.json(captcha))
+    }
+
+    // Verify captcha (for testing)
+    if (route === '/captcha/verify' && method === 'POST') {
+      const { captchaId, answer } = await request.json()
+      const isValid = verifyCaptcha(captchaId, answer)
+      return handleCORS(NextResponse.json({ valid: isValid }))
+    }
+
+    // ==================== MEMBER AUTH ROUTES ====================
+    
+    // Member signup
+    if (route === '/member/signup' && method === 'POST') {
+      const { email, password, name, roadName, phone, bike, captchaId, captchaAnswer } = await request.json()
+
+      // Verify captcha
+      if (!verifyCaptcha(captchaId, captchaAnswer)) {
+        return handleCORS(NextResponse.json({ error: 'Invalid captcha. Please try again.' }, { status: 400 }))
+      }
+
+      // Validate required fields
+      if (!email || !password || !name) {
+        return handleCORS(NextResponse.json({ error: 'Email, password, and name are required' }, { status: 400 }))
+      }
+
+      if (password.length < 6) {
+        return handleCORS(NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 }))
+      }
+
+      // Check if email already exists
+      const existingMember = await db.collection('member_accounts').findOne({ email })
+      if (existingMember) {
+        return handleCORS(NextResponse.json({ error: 'Email already registered' }, { status: 400 }))
+      }
+
+      // Hash password and create member account
+      const hashedPassword = await bcrypt.hash(password, 12)
+      const memberId = uuidv4()
+      
+      // Create member account
+      const memberAccount = {
+        id: memberId,
+        email,
+        password: hashedPassword,
+        createdAt: new Date()
+      }
+      await db.collection('member_accounts').insertOne(memberAccount)
+
+      // Create member profile in members collection
+      const memberProfile = {
+        id: memberId,
+        accountId: memberId,
+        name,
+        roadName: roadName || '',
+        email,
+        phone: phone || '',
+        bike: bike || '',
+        rank: 'Rubble', // Default rank for new members
+        position: 'Member',
+        chapter: 'Agartala',
+        status: 'active',
+        totalKilometers: 0,
+        ridesCount: 0,
+        createdAt: new Date()
+      }
+      await db.collection('members').insertOne(memberProfile)
+
+      // Generate token
+      const token = generateToken({ id: memberId, email, role: 'member', name })
+      
+      return handleCORS(NextResponse.json({ 
+        message: 'Account created successfully',
+        token,
+        user: { id: memberId, email, name, role: 'member' }
+      }, { status: 201 }))
+    }
+
+    // Member login
+    if (route === '/member/login' && method === 'POST') {
+      const { email, password, captchaId, captchaAnswer } = await request.json()
+
+      // Verify captcha
+      if (!verifyCaptcha(captchaId, captchaAnswer)) {
+        return handleCORS(NextResponse.json({ error: 'Invalid captcha. Please try again.' }, { status: 400 }))
+      }
+
+      const memberAccount = await db.collection('member_accounts').findOne({ email })
+      
+      if (!memberAccount || !(await bcrypt.compare(password, memberAccount.password))) {
+        return handleCORS(NextResponse.json({ error: 'Invalid credentials' }, { status: 401 }))
+      }
+
+      // Get member profile
+      const memberProfile = await db.collection('members').findOne({ accountId: memberAccount.id })
+      
+      const token = generateToken({ 
+        id: memberAccount.id, 
+        email: memberAccount.email, 
+        role: 'member', 
+        name: memberProfile?.name || 'Member'
+      })
+      
+      return handleCORS(NextResponse.json({ 
+        token, 
+        user: { 
+          id: memberAccount.id, 
+          email: memberAccount.email, 
+          name: memberProfile?.name || 'Member',
+          role: 'member'
+        }
+      }))
+    }
+
+    // Member get profile
+    if (route === '/member/profile' && method === 'GET') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const memberProfile = await db.collection('members').findOne({ accountId: user.id })
+      if (!memberProfile) {
+        return handleCORS(NextResponse.json({ error: 'Profile not found' }, { status: 404 }))
+      }
+
+      const { _id, ...cleanedProfile } = memberProfile
+      return handleCORS(NextResponse.json(cleanedProfile))
+    }
+
+    // Member update profile
+    if (route === '/member/profile' && method === 'PUT') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const body = await request.json()
+      const allowedFields = ['name', 'roadName', 'phone', 'bike', 'chapter']
+      const updateData = {}
+      
+      for (const field of allowedFields) {
+        if (body[field] !== undefined) {
+          updateData[field] = body[field]
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        updateData.updatedAt = new Date()
+        await db.collection('members').updateOne({ accountId: user.id }, { $set: updateData })
+      }
+
+      const updatedProfile = await db.collection('members').findOne({ accountId: user.id })
+      const { _id, ...cleanedProfile } = updatedProfile
+
+      return handleCORS(NextResponse.json({ message: 'Profile updated', profile: cleanedProfile }))
+    }
+
+    // Member change password
+    if (route === '/member/change-password' && method === 'POST') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const { currentPassword, newPassword } = await request.json()
+
+      if (!currentPassword || !newPassword) {
+        return handleCORS(NextResponse.json({ error: 'Current password and new password are required' }, { status: 400 }))
+      }
+
+      if (newPassword.length < 6) {
+        return handleCORS(NextResponse.json({ error: 'New password must be at least 6 characters' }, { status: 400 }))
+      }
+
+      const memberAccount = await db.collection('member_accounts').findOne({ id: user.id })
+      if (!memberAccount) {
+        return handleCORS(NextResponse.json({ error: 'Account not found' }, { status: 404 }))
+      }
+
+      const isValidPassword = await bcrypt.compare(currentPassword, memberAccount.password)
+      if (!isValidPassword) {
+        return handleCORS(NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 }))
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 12)
+      await db.collection('member_accounts').updateOne(
+        { id: user.id },
+        { $set: { password: hashedPassword, updatedAt: new Date() } }
+      )
+
+      return handleCORS(NextResponse.json({ message: 'Password changed successfully' }))
+    }
+
+    // Member get attendance
+    if (route === '/member/attendance' && method === 'GET') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const memberProfile = await db.collection('members').findOne({ accountId: user.id })
+      if (!memberProfile) {
+        return handleCORS(NextResponse.json({ error: 'Profile not found' }, { status: 404 }))
+      }
+
+      const attendance = await db.collection('ride_attendance')
+        .find({ memberId: memberProfile.id })
+        .sort({ createdAt: -1 })
+        .toArray()
+
+      // Get ride details for each attendance
+      const rideIds = attendance.map(a => a.rideId)
+      const rides = await db.collection('rides').find({ id: { $in: rideIds } }).toArray()
+      const ridesMap = new Map(rides.map(r => [r.id, r]))
+
+      const enrichedAttendance = attendance.map(({ _id, ...a }) => ({
+        ...a,
+        ride: ridesMap.get(a.rideId) ? {
+          title: ridesMap.get(a.rideId).title,
+          date: ridesMap.get(a.rideId).date,
+          distance: ridesMap.get(a.rideId).distance
+        } : null
+      }))
+
+      return handleCORS(NextResponse.json(enrichedAttendance))
+    }
+
+    // Member get stats (total km, rides count)
+    if (route === '/member/stats' && method === 'GET') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const memberProfile = await db.collection('members').findOne({ accountId: user.id })
+      if (!memberProfile) {
+        return handleCORS(NextResponse.json({ error: 'Profile not found' }, { status: 404 }))
+      }
+
+      // Calculate total kilometers from attended rides
+      const attendance = await db.collection('ride_attendance')
+        .find({ memberId: memberProfile.id, present: true })
+        .toArray()
+
+      const rideIds = attendance.map(a => a.rideId)
+      const rides = await db.collection('rides').find({ id: { $in: rideIds } }).toArray()
+      
+      const totalKilometers = rides.reduce((sum, ride) => sum + (ride.distance || 0), 0)
+      const ridesCount = rides.length
+
+      // Update member profile with latest stats
+      await db.collection('members').updateOne(
+        { accountId: user.id },
+        { $set: { totalKilometers, ridesCount } }
+      )
+
+      return handleCORS(NextResponse.json({
+        totalKilometers,
+        ridesCount,
+        rank: memberProfile.rank,
+        position: memberProfile.position
+      }))
+    }
+
+    // Member upload ride excel
+    if (route === '/member/ride-excel' && method === 'POST') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const body = await request.json()
+      const { fileName, fileData, description } = body
+
+      if (!fileName || !fileData) {
+        return handleCORS(NextResponse.json({ error: 'File name and data are required' }, { status: 400 }))
+      }
+
+      const memberProfile = await db.collection('members').findOne({ accountId: user.id })
+      
+      const upload = {
+        id: uuidv4(),
+        memberId: memberProfile?.id || user.id,
+        memberName: memberProfile?.name || 'Unknown',
+        fileName,
+        fileData, // Base64 encoded
+        description: description || '',
+        status: 'pending', // pending, reviewed, approved
+        uploadedAt: new Date()
+      }
+
+      await db.collection('ride_uploads').insertOne(upload)
+
+      return handleCORS(NextResponse.json({ message: 'File uploaded successfully', uploadId: upload.id }))
+    }
+
+    // Member get uploaded files
+    if (route === '/member/ride-excel' && method === 'GET') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const memberProfile = await db.collection('members').findOne({ accountId: user.id })
+      const uploads = await db.collection('ride_uploads')
+        .find({ memberId: memberProfile?.id || user.id })
+        .sort({ uploadedAt: -1 })
+        .toArray()
+
+      const cleanedUploads = uploads.map(({ _id, fileData, ...rest }) => rest) // Don't send file data back
+      return handleCORS(NextResponse.json(cleanedUploads))
+    }
+
+    // Admin get all ride uploads
+    if (route === '/admin/ride-uploads' && method === 'GET') {
+      const user = await authenticateRequest(request)
+      if (!user || !['super_admin', 'admin'].includes(user.role)) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const uploads = await db.collection('ride_uploads').find({}).sort({ uploadedAt: -1 }).toArray()
+      const cleanedUploads = uploads.map(({ _id, ...rest }) => rest)
+      return handleCORS(NextResponse.json(cleanedUploads))
+    }
+
+    // Admin update ride upload status
+    if (route.startsWith('/admin/ride-uploads/') && method === 'PUT') {
+      const user = await authenticateRequest(request)
+      if (!user || !['super_admin', 'admin'].includes(user.role)) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const uploadId = path[2]
+      const body = await request.json()
+      await db.collection('ride_uploads').updateOne(
+        { id: uploadId },
+        { $set: { status: body.status, reviewedBy: user.id, reviewedAt: new Date(), notes: body.notes || '' } }
+      )
+      return handleCORS(NextResponse.json({ message: 'Upload status updated' }))
+    }
+
     // ==================== ADMIN ROUTES (Protected) ====================
     
     // Admin dashboard stats
