@@ -2649,6 +2649,7 @@ export default function AdminPage() {
       case 'applications': return <ApplicationsTab token={token} />
       case 'contacts': return <ContactsTab token={token} />
       case 'seo': return <SEOTab token={token} />
+      case 'profile': return <ProfileTab token={token} user={user} setUser={setUser} setToken={setToken} />
       default: return <DashboardTab token={token} />
     }
   }
