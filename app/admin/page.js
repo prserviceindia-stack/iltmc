@@ -119,6 +119,7 @@ function Sidebar({ activeTab, setActiveTab, user, onLogout, collapsed, setCollap
     { id: 'applications', label: 'Applications', icon: FileText },
     { id: 'contacts', label: 'Messages', icon: Mail },
     { id: 'seo', label: 'SEO Settings', icon: Settings },
+    { id: 'profile', label: 'Profile Settings', icon: User },
   ]
 
   return (
