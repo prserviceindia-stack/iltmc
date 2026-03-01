@@ -10,6 +10,62 @@ let db
 
 const JWT_SECRET = process.env.JWT_SECRET || 'iltmc-super-secret-key-2013'
 
+// Captcha store (in-memory, with expiration)
+const captchaStore = new Map()
+
+// Generate math captcha
+function generateCaptcha() {
+  const operations = ['+', '-', '*']
+  const op = operations[Math.floor(Math.random() * operations.length)]
+  let num1, num2, answer
+  
+  switch (op) {
+    case '+':
+      num1 = Math.floor(Math.random() * 20) + 1
+      num2 = Math.floor(Math.random() * 20) + 1
+      answer = num1 + num2
+      break
+    case '-':
+      num1 = Math.floor(Math.random() * 20) + 10
+      num2 = Math.floor(Math.random() * 10) + 1
+      answer = num1 - num2
+      break
+    case '*':
+      num1 = Math.floor(Math.random() * 10) + 1
+      num2 = Math.floor(Math.random() * 10) + 1
+      answer = num1 * num2
+      break
+  }
+  
+  const captchaId = uuidv4()
+  const question = `${num1} ${op} ${num2} = ?`
+  
+  // Store with 5-minute expiration
+  captchaStore.set(captchaId, { answer, expires: Date.now() + 5 * 60 * 1000 })
+  
+  // Clean up old captchas
+  for (const [key, value] of captchaStore.entries()) {
+    if (value.expires < Date.now()) {
+      captchaStore.delete(key)
+    }
+  }
+  
+  return { captchaId, question }
+}
+
+// Verify captcha
+function verifyCaptcha(captchaId, userAnswer) {
+  const stored = captchaStore.get(captchaId)
+  if (!stored) return false
+  if (stored.expires < Date.now()) {
+    captchaStore.delete(captchaId)
+    return false
+  }
+  const isValid = parseInt(userAnswer) === stored.answer
+  captchaStore.delete(captchaId) // One-time use
+  return isValid
+}
+
 async function connectToMongo() {
   if (!client) {
     client = new MongoClient(process.env.MONGO_URL)
