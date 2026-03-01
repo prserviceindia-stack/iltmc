@@ -1066,13 +1066,49 @@ async function handleRoute(request, { params }) {
       const body = await request.json()
       const event = {
         id: uuidv4(),
-        ...body,
+        title: body.title,
+        description: body.description,
         date: new Date(body.date),
+        venue: body.venue,
+        type: body.type,
+        imageUrl: body.imageUrl || '', // New: Event image
+        externalLink: body.externalLink || '', // New: External link
         isPublic: body.isPublic ?? true,
         createdAt: new Date()
       }
       await db.collection('events').insertOne(event)
       return handleCORS(NextResponse.json(event, { status: 201 }))
+    }
+
+    // Update event
+    if (route.startsWith('/admin/events/') && method === 'PUT') {
+      const user = await authenticateRequest(request)
+      if (!user || !['super_admin', 'admin'].includes(user.role)) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const eventId = path[2]
+      const body = await request.json()
+      const updateData = {
+        ...body,
+        updatedAt: new Date()
+      }
+      if (body.date) updateData.date = new Date(body.date)
+      
+      await db.collection('events').updateOne({ id: eventId }, { $set: updateData })
+      return handleCORS(NextResponse.json({ message: 'Event updated' }))
+    }
+
+    // Delete event
+    if (route.startsWith('/admin/events/') && method === 'DELETE') {
+      const user = await authenticateRequest(request)
+      if (!user || !['super_admin', 'admin'].includes(user.role)) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const eventId = path[2]
+      await db.collection('events').deleteOne({ id: eventId })
+      return handleCORS(NextResponse.json({ message: 'Event deleted' }))
     }
 
     // ==================== APPLICATIONS ====================
