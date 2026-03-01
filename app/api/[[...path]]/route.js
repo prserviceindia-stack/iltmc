@@ -331,6 +331,100 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json({ user }))
     }
 
+    // Get current user profile
+    if (route === '/auth/profile' && method === 'GET') {
+      const user = await authenticateRequest(request)
+      if (!user) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+      const userData = await db.collection('users').findOne({ id: user.id })
+      if (!userData) {
+        return handleCORS(NextResponse.json({ error: 'User not found' }, { status: 404 }))
+      }
+      const { password: _, _id, ...cleanedUser } = userData
+      return handleCORS(NextResponse.json(cleanedUser))
+    }
+
+    // Update profile (email, name)
+    if (route === '/auth/profile' && method === 'PUT') {
+      const user = await authenticateRequest(request)
+      if (!user) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const body = await request.json()
+      const updateData = {}
+
+      // Update name if provided
+      if (body.name) {
+        updateData.name = body.name
+      }
+
+      // Update email if provided and different
+      if (body.email && body.email !== user.email) {
+        // Check if email is already taken
+        const existingUser = await db.collection('users').findOne({ email: body.email })
+        if (existingUser && existingUser.id !== user.id) {
+          return handleCORS(NextResponse.json({ error: 'Email already in use' }, { status: 400 }))
+        }
+        updateData.email = body.email
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        updateData.updatedAt = new Date()
+        await db.collection('users').updateOne({ id: user.id }, { $set: updateData })
+      }
+
+      // Get updated user data
+      const updatedUser = await db.collection('users').findOne({ id: user.id })
+      const { password: _, _id, ...cleanedUser } = updatedUser
+
+      // Generate new token with updated info
+      const newToken = generateToken({ id: cleanedUser.id, email: cleanedUser.email, role: cleanedUser.role, name: cleanedUser.name })
+
+      return handleCORS(NextResponse.json({ message: 'Profile updated', user: cleanedUser, token: newToken }))
+    }
+
+    // Change password
+    if (route === '/auth/change-password' && method === 'POST') {
+      const user = await authenticateRequest(request)
+      if (!user) {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const { currentPassword, newPassword } = await request.json()
+
+      // Validate input
+      if (!currentPassword || !newPassword) {
+        return handleCORS(NextResponse.json({ error: 'Current password and new password are required' }, { status: 400 }))
+      }
+
+      if (newPassword.length < 6) {
+        return handleCORS(NextResponse.json({ error: 'New password must be at least 6 characters' }, { status: 400 }))
+      }
+
+      // Get current user from database
+      const userData = await db.collection('users').findOne({ id: user.id })
+      if (!userData) {
+        return handleCORS(NextResponse.json({ error: 'User not found' }, { status: 404 }))
+      }
+
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(currentPassword, userData.password)
+      if (!isValidPassword) {
+        return handleCORS(NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 }))
+      }
+
+      // Hash new password and update
+      const hashedPassword = await bcrypt.hash(newPassword, 12)
+      await db.collection('users').updateOne(
+        { id: user.id },
+        { $set: { password: hashedPassword, updatedAt: new Date() } }
+      )
+
+      return handleCORS(NextResponse.json({ message: 'Password changed successfully' }))
+    }
+
     // ==================== ADMIN ROUTES (Protected) ====================
     
     // Admin dashboard stats
