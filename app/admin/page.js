@@ -976,8 +976,10 @@ function AttendanceTab({ token }) {
 function EventsTab({ token }) {
   const [events, setEvents] = useState([])
   const [showDialog, setShowDialog] = useState(false)
+  const [editingEvent, setEditingEvent] = useState(null)
   const [formData, setFormData] = useState({
-    title: '', description: '', date: '', venue: '', type: 'Rally', isPublic: true
+    title: '', description: '', date: '', venue: '', type: 'Rally', 
+    imageUrl: '', externalLink: '', isPublic: true
   })
 
   useEffect(() => {
@@ -990,8 +992,11 @@ function EventsTab({ token }) {
   }
 
   const handleSave = async () => {
-    const res = await fetch('/api/admin/events', {
-      method: 'POST',
+    const url = editingEvent ? `/api/admin/events/${editingEvent.id}` : '/api/admin/events'
+    const method = editingEvent ? 'PUT' : 'POST'
+    
+    const res = await fetch(url, {
+      method,
       headers: { 
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
@@ -999,11 +1004,45 @@ function EventsTab({ token }) {
       body: JSON.stringify(formData)
     })
     if (res.ok) {
-      toast.success('Event created')
+      toast.success(editingEvent ? 'Event updated' : 'Event created')
       setShowDialog(false)
-      setFormData({ title: '', description: '', date: '', venue: '', type: 'Rally', isPublic: true })
+      setEditingEvent(null)
+      setFormData({ title: '', description: '', date: '', venue: '', type: 'Rally', imageUrl: '', externalLink: '', isPublic: true })
       fetchEvents()
     }
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this event?')) return
+    const res = await fetch(`/api/admin/events/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (res.ok) {
+      toast.success('Event deleted')
+      fetchEvents()
+    }
+  }
+
+  const openEdit = (event) => {
+    setEditingEvent(event)
+    setFormData({
+      title: event.title || '',
+      description: event.description || '',
+      date: event.date ? new Date(event.date).toISOString().slice(0, 16) : '',
+      venue: event.venue || '',
+      type: event.type || 'Rally',
+      imageUrl: event.imageUrl || '',
+      externalLink: event.externalLink || '',
+      isPublic: event.isPublic ?? true
+    })
+    setShowDialog(true)
+  }
+
+  const openAdd = () => {
+    setEditingEvent(null)
+    setFormData({ title: '', description: '', date: '', venue: '', type: 'Rally', imageUrl: '', externalLink: '', isPublic: true })
+    setShowDialog(true)
   }
 
   return (
@@ -1013,21 +1052,41 @@ function EventsTab({ token }) {
           <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>Events</h1>
           <p className="text-gray-400">Manage club events</p>
         </div>
-        <Button onClick={() => setShowDialog(true)} className="bg-red-600 hover:bg-red-700">
+        <Button onClick={openAdd} className="bg-red-600 hover:bg-red-700">
           <Plus size={16} className="mr-2" /> Create Event
         </Button>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {events.map((event) => (
-          <Card key={event.id} className="bg-zinc-900/50 border-zinc-800">
+          <Card key={event.id} className="bg-zinc-900/50 border-zinc-800 overflow-hidden">
+            {event.imageUrl && (
+              <div className="h-40 bg-zinc-800 relative">
+                <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" />
+              </div>
+            )}
             <CardContent className="p-6">
-              <Badge className="mb-2 bg-red-600">{event.type}</Badge>
+              <div className="flex items-center justify-between mb-2">
+                <Badge className="bg-red-600">{event.type}</Badge>
+                {event.externalLink && (
+                  <a href={event.externalLink} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                    <Link size={16} />
+                  </a>
+                )}
+              </div>
               <h3 className="text-xl font-bold mb-2">{event.title}</h3>
-              <p className="text-gray-400 text-sm mb-4">{event.description}</p>
+              <p className="text-gray-400 text-sm mb-4 line-clamp-2">{event.description}</p>
               <div className="space-y-2 text-sm">
                 <p><Calendar size={14} className="inline mr-2" />{new Date(event.date).toLocaleDateString()}</p>
                 <p><MapPin size={14} className="inline mr-2" />{event.venue}</p>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <Button size="sm" variant="outline" onClick={() => openEdit(event)} className="flex-1">
+                  <Edit size={14} className="mr-1" /> Edit
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => handleDelete(event.id)}>
+                  <Trash2 size={14} />
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -1040,13 +1099,13 @@ function EventsTab({ token }) {
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="bg-zinc-900 border-zinc-800">
+        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create Event</DialogTitle>
+            <DialogTitle>{editingEvent ? 'Edit Event' : 'Create Event'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label>Title</Label>
+              <Label>Title *</Label>
               <Input
                 value={formData.title}
                 onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -1063,7 +1122,7 @@ function EventsTab({ token }) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Date</Label>
+                <Label>Date *</Label>
                 <Input
                   type="datetime-local"
                   value={formData.date}
@@ -1095,10 +1154,36 @@ function EventsTab({ token }) {
                 className="bg-zinc-800 border-zinc-700"
               />
             </div>
+            <div>
+              <Label>Image URL</Label>
+              <Input
+                value={formData.imageUrl}
+                onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
+                className="bg-zinc-800 border-zinc-700"
+                placeholder="https://..."
+              />
+              {formData.imageUrl && (
+                <div className="mt-2 h-32 bg-zinc-800 rounded overflow-hidden">
+                  <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+            <div>
+              <Label>External Link</Label>
+              <Input
+                value={formData.externalLink}
+                onChange={(e) => setFormData({...formData, externalLink: e.target.value})}
+                className="bg-zinc-800 border-zinc-700"
+                placeholder="https://facebook.com/event/..."
+              />
+              <p className="text-xs text-gray-500 mt-1">Link to Facebook event, registration page, etc.</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">Create Event</Button>
+            <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">
+              {editingEvent ? 'Update' : 'Create'} Event
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
