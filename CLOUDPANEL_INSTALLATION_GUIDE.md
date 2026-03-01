@@ -10,13 +10,13 @@
 ### Method A: Direct Download Link
 Your complete package is available at:
 ```
-https://ride-command-center.preview.emergentagent.com/api/download
+https://leones-admin.preview.emergentagent.com/api/download
 ```
 *(If this doesn't work, use Method B)*
 
 ### Method B: Download Individual Files
 1. Open your browser
-2. Go to: `https://ride-command-center.preview.emergentagent.com`
+2. Go to: `https://leones-admin.preview.emergentagent.com`
 3. The files you need are in `/app/iltmc_complete_package.tar.gz`
 
 ### Method C: Use the Preview File Manager

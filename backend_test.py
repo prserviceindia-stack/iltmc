@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timedelta
 
 # Configuration
-BASE_URL = "https://ride-command-center.preview.emergentagent.com/api"
+BASE_URL = "https://leones-admin.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@iltmc.com"
 ADMIN_PASSWORD = "admin123"
 
