@@ -2375,6 +2375,221 @@ function ChaptersTab({ token }) {
   )
 }
 
+// Profile Settings Tab
+function ProfileTab({ token, user, setUser, setToken }) {
+  const [profile, setProfile] = useState({ name: '', email: '' })
+  const [passwords, setPasswords] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [loading, setLoading] = useState(false)
+  const [passwordLoading, setPasswordLoading] = useState(false)
+
+  useEffect(() => {
+    if (user) {
+      setProfile({ name: user.name || '', email: user.email || '' })
+    }
+  }, [user])
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(profile)
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success('Profile updated successfully!')
+        // Update local storage and state with new user data
+        if (data.user) {
+          localStorage.setItem('iltmc_user', JSON.stringify(data.user))
+          setUser(data.user)
+        }
+        if (data.token) {
+          localStorage.setItem('iltmc_token', data.token)
+          setToken(data.token)
+        }
+      } else {
+        toast.error(data.error || 'Failed to update profile')
+      }
+    } catch (error) {
+      toast.error('Failed to update profile')
+    }
+    setLoading(false)
+  }
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+
+    if (passwords.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return
+    }
+
+    setPasswordLoading(true)
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          currentPassword: passwords.currentPassword,
+          newPassword: passwords.newPassword
+        })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success('Password changed successfully!')
+        setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      } else {
+        toast.error(data.error || 'Failed to change password')
+      }
+    } catch (error) {
+      toast.error('Failed to change password')
+    }
+    setPasswordLoading(false)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>Profile Settings</h1>
+        <p className="text-gray-400">Manage your account settings and password</p>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Update Profile */}
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User size={20} className="text-red-500" />
+              Account Information
+            </CardTitle>
+            <CardDescription>Update your name and email address</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <div>
+                <Label>Full Name</Label>
+                <Input
+                  value={profile.name}
+                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                  className="bg-zinc-800 border-zinc-700"
+                  placeholder="Enter your name"
+                />
+              </div>
+              <div>
+                <Label>Email Address</Label>
+                <Input
+                  type="email"
+                  value={profile.email}
+                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                  className="bg-zinc-800 border-zinc-700"
+                  placeholder="Enter your email"
+                />
+              </div>
+              <div>
+                <Label>Role</Label>
+                <Input
+                  value={user?.role || 'N/A'}
+                  className="bg-zinc-800 border-zinc-700"
+                  disabled
+                />
+                <p className="text-xs text-gray-500 mt-1">Role cannot be changed from here</p>
+              </div>
+              <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={loading}>
+                {loading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Change Password */}
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield size={20} className="text-red-500" />
+              Change Password
+            </CardTitle>
+            <CardDescription>Update your password for security</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <Label>Current Password</Label>
+                <Input
+                  type="password"
+                  value={passwords.currentPassword}
+                  onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
+                  className="bg-zinc-800 border-zinc-700"
+                  placeholder="Enter current password"
+                  required
+                />
+              </div>
+              <div>
+                <Label>New Password</Label>
+                <Input
+                  type="password"
+                  value={passwords.newPassword}
+                  onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+                  className="bg-zinc-800 border-zinc-700"
+                  placeholder="Enter new password (min 6 characters)"
+                  required
+                />
+              </div>
+              <div>
+                <Label>Confirm New Password</Label>
+                <Input
+                  type="password"
+                  value={passwords.confirmPassword}
+                  onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
+                  className="bg-zinc-800 border-zinc-700"
+                  placeholder="Confirm new password"
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={passwordLoading}>
+                {passwordLoading ? 'Changing...' : 'Change Password'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Security Info */}
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader>
+          <CardTitle>Security Tips</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2 text-sm text-gray-400">
+            <li className="flex items-center gap-2">
+              <CheckCircle size={16} className="text-green-500" />
+              Use a strong password with at least 6 characters
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle size={16} className="text-green-500" />
+              Include numbers and special characters for better security
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle size={16} className="text-green-500" />
+              Never share your login credentials with others
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle size={16} className="text-green-500" />
+              Log out when using shared computers
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // Main Admin Page
 export default function AdminPage() {
   const [user, setUser] = useState(null)
