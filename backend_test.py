@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-ILTMC Backend API Test Suite
-Tests all backend APIs for the Intrepidus Leones Tripura Motorcycle Club
+ILTMC Backend API Test Suite - NEW FEATURES
+Tests new member signup flow, gallery management, and application system
 """
 
 import requests
 import json
 import uuid
+import base64
 from datetime import datetime, timedelta
 
 # Configuration
@@ -16,12 +17,15 @@ ADMIN_PASSWORD = "admin123"
 
 class ILTMCAPITester:
     def __init__(self):
-        self.token = None
+        self.admin_token = None
+        self.member_token = None
         self.test_results = {}
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json'
         })
+        self.created_member_id = None
+        self.created_gallery_id = None
 
     def log_result(self, test_name, success, message, response_data=None):
         """Log test result"""
@@ -33,34 +37,57 @@ class ILTMCAPITester:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{status} {test_name}: {message}")
 
-    def make_request(self, method, endpoint, data=None, use_auth=False):
+    def make_request(self, method, endpoint, data=None, use_auth=False, token=None):
         """Make HTTP request with error handling"""
         url = f"{BASE_URL}{endpoint}"
         headers = {}
         
-        if use_auth and self.token:
-            headers['Authorization'] = f'Bearer {self.token}'
+        if use_auth:
+            auth_token = token if token else self.admin_token
+            if auth_token:
+                headers['Authorization'] = f'Bearer {auth_token}'
             
         try:
             if method.upper() == 'GET':
-                response = self.session.get(url, headers=headers)
+                response = self.session.get(url, headers=headers, timeout=30)
             elif method.upper() == 'POST':
-                response = self.session.post(url, json=data, headers=headers)
+                response = self.session.post(url, json=data, headers=headers, timeout=30)
             elif method.upper() == 'PUT':
-                response = self.session.put(url, json=data, headers=headers)
+                response = self.session.put(url, json=data, headers=headers, timeout=30)
             elif method.upper() == 'DELETE':
-                response = self.session.delete(url, headers=headers)
+                response = self.session.delete(url, headers=headers, timeout=30)
             
             return response
         except Exception as e:
             print(f"Request failed: {e}")
             return None
 
-    def test_auth_login(self):
-        """Test authentication login API"""
-        print("\n=== Testing Auth System - Login API ===")
+    def get_captcha(self):
+        """Get captcha for member signup/login"""
+        response = self.make_request('GET', '/captcha/generate')
+        if response and response.status_code == 200:
+            data = response.json()
+            # Parse the captcha question and calculate answer
+            question = data['question']  # e.g., "5 + 3 = ?"
+            parts = question.replace('=', '').replace('?', '').strip().split()
+            num1 = int(parts[0])
+            op = parts[1]
+            num2 = int(parts[2])
+            
+            if op == '+':
+                answer = num1 + num2
+            elif op == '-':
+                answer = num1 - num2
+            elif op == '*':
+                answer = num1 * num2
+            
+            return data['captchaId'], answer
+        return None, None
+
+    def test_admin_login(self):
+        """Test admin authentication"""
+        print("\n=== Testing Admin Login ===")
         
-        # Test valid login
         login_data = {
             "email": ADMIN_EMAIL,
             "password": ADMIN_PASSWORD
@@ -72,343 +99,427 @@ class ILTMCAPITester:
             try:
                 data = response.json()
                 if 'token' in data and 'user' in data:
-                    self.token = data['token']
-                    self.log_result("Auth Login", True, f"Login successful for {data['user']['email']}", data)
-                    
-                    # Test token verification
-                    verify_response = self.make_request('GET', '/auth/verify', use_auth=True)
-                    if verify_response and verify_response.status_code == 200:
-                        self.log_result("Auth Token Verify", True, "Token verification successful")
-                    else:
-                        self.log_result("Auth Token Verify", False, f"Token verification failed: {verify_response.status_code if verify_response else 'No response'}")
+                    self.admin_token = data['token']
+                    self.log_result("Admin Login", True, f"Admin login successful for {data['user']['email']}")
                 else:
-                    self.log_result("Auth Login", False, "Invalid response structure", data)
+                    self.log_result("Admin Login", False, "Invalid response structure")
             except json.JSONDecodeError:
-                self.log_result("Auth Login", False, "Invalid JSON response")
+                self.log_result("Admin Login", False, "Invalid JSON response")
         else:
-            self.log_result("Auth Login", False, f"Login failed: {response.status_code if response else 'No response'}")
-            
-        # Test invalid login
-        invalid_data = {"email": "wrong@test.com", "password": "wrong"}
-        response = self.make_request('POST', '/auth/login', invalid_data)
-        if response and response.status_code == 401:
-            self.log_result("Auth Invalid Login", True, "Invalid login properly rejected")
-        else:
-            self.log_result("Auth Invalid Login", False, f"Invalid login not properly handled: {response.status_code if response else 'No response'}")
+            self.log_result("Admin Login", False, f"Login failed: {response.status_code if response else 'No response'}")
 
-    def test_public_stats(self):
-        """Test public stats API"""
-        print("\n=== Testing Public Stats API ===")
+    def test_member_signup(self):
+        """Test member signup flow - creates account with pending status"""
+        print("\n=== Testing Member Signup Flow ===")
         
-        response = self.make_request('GET', '/stats')
+        # Get captcha
+        captcha_id, captcha_answer = self.get_captcha()
+        if not captcha_id:
+            self.log_result("Member Signup - Captcha", False, "Failed to get captcha")
+            return
+        
+        self.log_result("Member Signup - Captcha", True, f"Captcha obtained: {captcha_id}")
+        
+        # Test member signup
+        unique_email = f"testmember_{uuid.uuid4().hex[:8]}@iltmc.com"
+        signup_data = {
+            "email": unique_email,
+            "password": "testpass123",
+            "name": "Rajesh Kumar",
+            "captchaId": captcha_id,
+            "captchaAnswer": str(captcha_answer)
+        }
+        
+        response = self.make_request('POST', '/member/signup', signup_data)
+        
+        if response and response.status_code == 201:
+            try:
+                data = response.json()
+                if 'token' in data and 'user' in data:
+                    self.member_token = data['token']
+                    self.created_member_id = data['user']['id']
+                    approval_status = data['user'].get('approvalStatus')
+                    
+                    if approval_status == 'pending':
+                        self.log_result("Member Signup", True, f"Member account created with status 'pending'. ID: {self.created_member_id}")
+                    else:
+                        self.log_result("Member Signup", False, f"Expected status 'pending', got '{approval_status}'")
+                else:
+                    self.log_result("Member Signup", False, "Invalid response structure")
+            except json.JSONDecodeError:
+                self.log_result("Member Signup", False, "Invalid JSON response")
+        else:
+            self.log_result("Member Signup", False, f"Signup failed: {response.status_code if response else 'No response'}")
+
+    def test_member_profile_pending(self):
+        """Test member profile returns approvalStatus"""
+        print("\n=== Testing Member Profile (Pending Status) ===")
+        
+        if not self.member_token:
+            self.log_result("Member Profile - Pending", False, "No member token available")
+            return
+        
+        response = self.make_request('GET', '/member/profile', use_auth=True, token=self.member_token)
         
         if response and response.status_code == 200:
             try:
                 data = response.json()
-                required_fields = ['totalMembers', 'activeMembers', 'totalRides', 'totalEvents', 'totalDistance', 'yearsActive']
-                
-                if all(field in data for field in required_fields):
-                    self.log_result("Public Stats", True, f"Stats retrieved successfully: {data}", data)
+                if 'approvalStatus' in data:
+                    status = data['approvalStatus']
+                    if status == 'pending':
+                        self.log_result("Member Profile - Pending", True, f"Profile shows approvalStatus: {status}")
+                    else:
+                        self.log_result("Member Profile - Pending", False, f"Expected 'pending', got '{status}'")
                 else:
-                    missing = [f for f in required_fields if f not in data]
-                    self.log_result("Public Stats", False, f"Missing fields: {missing}")
+                    self.log_result("Member Profile - Pending", False, "approvalStatus field missing")
             except json.JSONDecodeError:
-                self.log_result("Public Stats", False, "Invalid JSON response")
+                self.log_result("Member Profile - Pending", False, "Invalid JSON response")
         else:
-            self.log_result("Public Stats", False, f"Stats API failed: {response.status_code if response else 'No response'}")
+            self.log_result("Member Profile - Pending", False, f"Failed: {response.status_code if response else 'No response'}")
 
-    def test_public_apis(self):
-        """Test all public APIs"""
-        print("\n=== Testing Public APIs ===")
+    def test_joining_form_submission(self):
+        """Test member joining form submission with documents"""
+        print("\n=== Testing Joining Form Submission ===")
         
-        public_endpoints = [
-            ('/members/public', 'Public Members'),
-            ('/rides/public', 'Public Rides'),
-            ('/rides/upcoming', 'Upcoming Rides'),
-            ('/events/upcoming', 'Upcoming Events'),
-            ('/ranks', 'Ranks List'),
-            ('/chapters', 'Chapters List')
-        ]
+        if not self.member_token:
+            self.log_result("Joining Form", False, "No member token available")
+            return
         
-        for endpoint, name in public_endpoints:
-            response = self.make_request('GET', endpoint)
+        # Create fake base64 documents
+        fake_aadhaar = base64.b64encode(b"FAKE_AADHAAR_DOCUMENT_DATA").decode('utf-8')
+        fake_license = base64.b64encode(b"FAKE_DRIVING_LICENSE_DATA").decode('utf-8')
+        
+        form_data = {
+            "roadName": "Thunder Rider",
+            "phone": "+91-9876543210",
+            "bike": "Royal Enfield Himalayan 450",
+            "experience": "7 years of riding experience",
+            "reason": "I want to join ILTMC to be part of the brotherhood and explore new riding adventures",
+            "chapter": "Agartala",
+            "aadhaarCard": fake_aadhaar,
+            "aadhaarFileName": "aadhaar.jpg",
+            "drivingLicense": fake_license,
+            "drivingLicenseFileName": "license.jpg"
+        }
+        
+        response = self.make_request('POST', '/member/joining-form', form_data, use_auth=True, token=self.member_token)
+        
+        if response and response.status_code == 200:
+            try:
+                data = response.json()
+                if 'approvalStatus' in data and data['approvalStatus'] == 'form_submitted':
+                    self.log_result("Joining Form", True, "Form submitted successfully, status changed to 'form_submitted'")
+                else:
+                    self.log_result("Joining Form", False, f"Unexpected response: {data}")
+            except json.JSONDecodeError:
+                self.log_result("Joining Form", False, "Invalid JSON response")
+        else:
+            self.log_result("Joining Form", False, f"Failed: {response.status_code if response else 'No response'}")
+
+    def test_member_profile_form_submitted(self):
+        """Test member profile after form submission"""
+        print("\n=== Testing Member Profile (Form Submitted) ===")
+        
+        if not self.member_token:
+            self.log_result("Member Profile - Form Submitted", False, "No member token available")
+            return
+        
+        response = self.make_request('GET', '/member/profile', use_auth=True, token=self.member_token)
+        
+        if response and response.status_code == 200:
+            try:
+                data = response.json()
+                if 'approvalStatus' in data:
+                    status = data['approvalStatus']
+                    if status == 'form_submitted':
+                        self.log_result("Member Profile - Form Submitted", True, f"Profile shows approvalStatus: {status}")
+                    else:
+                        self.log_result("Member Profile - Form Submitted", False, f"Expected 'form_submitted', got '{status}'")
+                else:
+                    self.log_result("Member Profile - Form Submitted", False, "approvalStatus field missing")
+            except json.JSONDecodeError:
+                self.log_result("Member Profile - Form Submitted", False, "Invalid JSON response")
+        else:
+            self.log_result("Member Profile - Form Submitted", False, f"Failed: {response.status_code if response else 'No response'}")
+
+    def test_admin_applications_list(self):
+        """Test admin applications list includes signup applications with source field"""
+        print("\n=== Testing Admin Applications List ===")
+        
+        if not self.admin_token:
+            self.log_result("Admin Applications List", False, "No admin token available")
+            return
+        
+        response = self.make_request('GET', '/admin/applications', use_auth=True)
+        
+        if response and response.status_code == 200:
+            try:
+                data = response.json()
+                if isinstance(data, list):
+                    # Check if our signup application is in the list
+                    signup_apps = [app for app in data if app.get('source') == 'signup']
+                    direct_apps = [app for app in data if app.get('source') == 'direct']
+                    
+                    found_our_app = any(app.get('id') == self.created_member_id for app in data)
+                    
+                    if found_our_app:
+                        self.log_result("Admin Applications List", True, 
+                                      f"Applications list includes signup applications. Total: {len(data)}, Signup: {len(signup_apps)}, Direct: {len(direct_apps)}")
+                    else:
+                        self.log_result("Admin Applications List", False, 
+                                      f"Our signup application not found in list. Total apps: {len(data)}")
+                else:
+                    self.log_result("Admin Applications List", False, "Response is not a list")
+            except json.JSONDecodeError:
+                self.log_result("Admin Applications List", False, "Invalid JSON response")
+        else:
+            self.log_result("Admin Applications List", False, f"Failed: {response.status_code if response else 'No response'}")
+
+    def test_admin_approve_application(self):
+        """Test admin approving member application"""
+        print("\n=== Testing Admin Approve Application ===")
+        
+        if not self.admin_token or not self.created_member_id:
+            self.log_result("Admin Approve Application", False, "No admin token or member ID available")
+            return
+        
+        approve_data = {
+            "status": "approved",
+            "memberType": "prospect"
+        }
+        
+        response = self.make_request('PUT', f'/admin/applications/{self.created_member_id}', approve_data, use_auth=True)
+        
+        if response and response.status_code == 200:
+            try:
+                data = response.json()
+                if 'message' in data and 'approved' in data['message'].lower():
+                    self.log_result("Admin Approve Application", True, "Application approved successfully")
+                else:
+                    self.log_result("Admin Approve Application", False, f"Unexpected response: {data}")
+            except json.JSONDecodeError:
+                self.log_result("Admin Approve Application", False, "Invalid JSON response")
+        else:
+            self.log_result("Admin Approve Application", False, f"Failed: {response.status_code if response else 'No response'}")
+
+    def test_member_profile_approved(self):
+        """Test member profile after approval"""
+        print("\n=== Testing Member Profile (Approved) ===")
+        
+        if not self.member_token:
+            self.log_result("Member Profile - Approved", False, "No member token available")
+            return
+        
+        response = self.make_request('GET', '/member/profile', use_auth=True, token=self.member_token)
+        
+        if response and response.status_code == 200:
+            try:
+                data = response.json()
+                if 'approvalStatus' in data:
+                    status = data['approvalStatus']
+                    if status == 'approved':
+                        self.log_result("Member Profile - Approved", True, f"Profile shows approvalStatus: {status}")
+                    else:
+                        self.log_result("Member Profile - Approved", False, f"Expected 'approved', got '{status}'")
+                else:
+                    self.log_result("Member Profile - Approved", False, "approvalStatus field missing")
+            except json.JSONDecodeError:
+                self.log_result("Member Profile - Approved", False, "Invalid JSON response")
+        else:
+            self.log_result("Member Profile - Approved", False, f"Failed: {response.status_code if response else 'No response'}")
+
+    def test_public_member_profile(self):
+        """Test public member profile with rank uploads"""
+        print("\n=== Testing Public Member Profile ===")
+        
+        if not self.created_member_id:
+            self.log_result("Public Member Profile", False, "No member ID available")
+            return
+        
+        response = self.make_request('GET', f'/members/{self.created_member_id}/profile')
+        
+        if response and response.status_code == 200:
+            try:
+                data = response.json()
+                if 'rankUploads' in data:
+                    self.log_result("Public Member Profile", True, 
+                                  f"Public profile retrieved with rankUploads field. Uploads: {len(data['rankUploads'])}")
+                else:
+                    self.log_result("Public Member Profile", False, "rankUploads field missing")
+            except json.JSONDecodeError:
+                self.log_result("Public Member Profile", False, "Invalid JSON response")
+        else:
+            self.log_result("Public Member Profile", False, f"Failed: {response.status_code if response else 'No response'}")
+
+    def test_gallery_management(self):
+        """Test gallery management APIs"""
+        print("\n=== Testing Gallery Management ===")
+        
+        if not self.admin_token:
+            self.log_result("Gallery Management", False, "No admin token available")
+            return
+        
+        # Test GET all gallery items (admin)
+        response = self.make_request('GET', '/admin/gallery', use_auth=True)
+        if response and response.status_code == 200:
+            try:
+                data = response.json()
+                self.log_result("Gallery - Admin List", True, f"Retrieved {len(data)} gallery items")
+            except json.JSONDecodeError:
+                self.log_result("Gallery - Admin List", False, "Invalid JSON response")
+        else:
+            self.log_result("Gallery - Admin List", False, f"Failed: {response.status_code if response else 'No response'}")
+        
+        # Test POST - Add to gallery
+        gallery_data = {
+            "title": "Test Ride Photo",
+            "description": "A beautiful mountain ride captured",
+            "imageUrl": "https://images.unsplash.com/photo-1558981806-ec527fa84c39",
+            "category": "rides",
+            "isPublic": True
+        }
+        
+        response = self.make_request('POST', '/admin/gallery', gallery_data, use_auth=True)
+        if response and response.status_code == 201:
+            try:
+                data = response.json()
+                self.created_gallery_id = data.get('id')
+                self.log_result("Gallery - Create", True, f"Gallery item created with ID: {self.created_gallery_id}")
+            except json.JSONDecodeError:
+                self.log_result("Gallery - Create", False, "Invalid JSON response")
+        else:
+            self.log_result("Gallery - Create", False, f"Failed: {response.status_code if response else 'No response'}")
+        
+        # Test PUT - Update gallery item
+        if self.created_gallery_id:
+            update_data = {
+                "title": "Updated Test Ride Photo",
+                "description": "Updated description"
+            }
+            response = self.make_request('PUT', f'/admin/gallery/{self.created_gallery_id}', update_data, use_auth=True)
+            
+            if response and response.status_code == 200:
+                self.log_result("Gallery - Update", True, "Gallery item updated successfully")
+            else:
+                self.log_result("Gallery - Update", False, f"Failed: {response.status_code if response else 'No response'}")
+        
+        # Test GET public gallery
+        response = self.make_request('GET', '/gallery')
+        if response and response.status_code == 200:
+            try:
+                data = response.json()
+                self.log_result("Gallery - Public List", True, f"Public gallery retrieved with {len(data)} items")
+            except json.JSONDecodeError:
+                self.log_result("Gallery - Public List", False, "Invalid JSON response")
+        else:
+            self.log_result("Gallery - Public List", False, f"Failed: {response.status_code if response else 'No response'}")
+        
+        # Test DELETE - Delete gallery item
+        if self.created_gallery_id:
+            response = self.make_request('DELETE', f'/admin/gallery/{self.created_gallery_id}', use_auth=True)
+            
+            if response and response.status_code == 200:
+                self.log_result("Gallery - Delete", True, "Gallery item deleted successfully")
+            else:
+                self.log_result("Gallery - Delete", False, f"Failed: {response.status_code if response else 'No response'}")
+
+    def test_admin_reject_application(self):
+        """Test admin rejecting an application (create new member for this)"""
+        print("\n=== Testing Admin Reject Application ===")
+        
+        # Create another member to test rejection
+        captcha_id, captcha_answer = self.get_captcha()
+        if not captcha_id:
+            self.log_result("Admin Reject - Setup", False, "Failed to get captcha")
+            return
+        
+        unique_email = f"rejecttest_{uuid.uuid4().hex[:8]}@iltmc.com"
+        signup_data = {
+            "email": unique_email,
+            "password": "testpass123",
+            "name": "Reject Test User",
+            "captchaId": captcha_id,
+            "captchaAnswer": str(captcha_answer)
+        }
+        
+        response = self.make_request('POST', '/member/signup', signup_data)
+        
+        if response and response.status_code == 201:
+            data = response.json()
+            reject_member_id = data['user']['id']
+            reject_token = data['token']
+            
+            # Submit joining form
+            fake_aadhaar = base64.b64encode(b"FAKE_AADHAAR_DATA").decode('utf-8')
+            fake_license = base64.b64encode(b"FAKE_LICENSE_DATA").decode('utf-8')
+            
+            form_data = {
+                "roadName": "Test Reject",
+                "phone": "+91-9999999999",
+                "bike": "Test Bike",
+                "experience": "Test",
+                "reason": "Test",
+                "chapter": "Agartala",
+                "aadhaarCard": fake_aadhaar,
+                "aadhaarFileName": "aadhaar.jpg",
+                "drivingLicense": fake_license,
+                "drivingLicenseFileName": "license.jpg"
+            }
+            
+            self.make_request('POST', '/member/joining-form', form_data, use_auth=True, token=reject_token)
+            
+            # Now reject the application
+            reject_data = {
+                "status": "rejected"
+            }
+            
+            response = self.make_request('PUT', f'/admin/applications/{reject_member_id}', reject_data, use_auth=True)
             
             if response and response.status_code == 200:
                 try:
                     data = response.json()
-                    if isinstance(data, list):
-                        self.log_result(name, True, f"Retrieved {len(data)} items")
+                    if 'message' in data and 'rejected' in data['message'].lower():
+                        self.log_result("Admin Reject Application", True, "Application rejected successfully")
                     else:
-                        self.log_result(name, True, "Data retrieved successfully")
+                        self.log_result("Admin Reject Application", False, f"Unexpected response: {data}")
                 except json.JSONDecodeError:
-                    self.log_result(name, False, "Invalid JSON response")
+                    self.log_result("Admin Reject Application", False, "Invalid JSON response")
             else:
-                self.log_result(name, False, f"Failed: {response.status_code if response else 'No response'}")
-
-    def test_admin_dashboard(self):
-        """Test admin dashboard API"""
-        print("\n=== Testing Admin Dashboard ===")
-        
-        if not self.token:
-            self.log_result("Admin Dashboard", False, "No auth token available")
-            return
-            
-        response = self.make_request('GET', '/admin/dashboard', use_auth=True)
-        
-        if response and response.status_code == 200:
-            try:
-                data = response.json()
-                required_fields = ['totalMembers', 'activeMembers', 'prospects', 'pendingApplications', 
-                                 'totalRides', 'upcomingRides', 'totalEvents', 'unreadContacts', 'attendanceRate']
-                
-                if all(field in data for field in required_fields):
-                    self.log_result("Admin Dashboard", True, f"Dashboard data retrieved: {data}", data)
-                else:
-                    missing = [f for f in required_fields if f not in data]
-                    self.log_result("Admin Dashboard", False, f"Missing dashboard fields: {missing}")
-            except json.JSONDecodeError:
-                self.log_result("Admin Dashboard", False, "Invalid JSON response")
+                self.log_result("Admin Reject Application", False, f"Failed: {response.status_code if response else 'No response'}")
         else:
-            self.log_result("Admin Dashboard", False, f"Dashboard API failed: {response.status_code if response else 'No response'}")
-
-    def test_members_crud(self):
-        """Test Members CRUD operations"""
-        print("\n=== Testing Members CRUD APIs ===")
-        
-        if not self.token:
-            self.log_result("Members CRUD", False, "No auth token available")
-            return
-
-        # Test GET all members
-        response = self.make_request('GET', '/admin/members', use_auth=True)
-        if response and response.status_code == 200:
-            try:
-                members = response.json()
-                self.log_result("Members List", True, f"Retrieved {len(members)} members")
-            except json.JSONDecodeError:
-                self.log_result("Members List", False, "Invalid JSON response")
-        else:
-            self.log_result("Members List", False, f"Failed: {response.status_code if response else 'No response'}")
-
-        # Test CREATE member
-        member_data = {
-            "name": "John Test Rider",
-            "email": "john.test@iltmc.com",
-            "phone": "+91-9876543210",
-            "bike": "Royal Enfield Classic 350",
-            "chapter": "Agartala",
-            "rank": "Prospect",
-            "status": "prospect"
-        }
-        
-        response = self.make_request('POST', '/admin/members', member_data, use_auth=True)
-        created_member_id = None
-        
-        if response and response.status_code == 201:
-            try:
-                data = response.json()
-                created_member_id = data.get('id')
-                self.log_result("Members Create", True, f"Member created with ID: {created_member_id}")
-            except json.JSONDecodeError:
-                self.log_result("Members Create", False, "Invalid JSON response")
-        else:
-            self.log_result("Members Create", False, f"Failed: {response.status_code if response else 'No response'}")
-
-        # Test UPDATE member (if created successfully)
-        if created_member_id:
-            update_data = {
-                "status": "active",
-                "rank": "Member"
-            }
-            response = self.make_request('PUT', f'/admin/members/{created_member_id}', update_data, use_auth=True)
-            
-            if response and response.status_code == 200:
-                self.log_result("Members Update", True, "Member updated successfully")
-            else:
-                self.log_result("Members Update", False, f"Failed: {response.status_code if response else 'No response'}")
-
-            # Test DELETE member
-            response = self.make_request('DELETE', f'/admin/members/{created_member_id}', use_auth=True)
-            
-            if response and response.status_code == 200:
-                self.log_result("Members Delete", True, "Member deleted successfully")
-            else:
-                self.log_result("Members Delete", False, f"Failed: {response.status_code if response else 'No response'}")
-
-    def test_rides_crud(self):
-        """Test Rides CRUD operations"""
-        print("\n=== Testing Rides CRUD APIs ===")
-        
-        if not self.token:
-            self.log_result("Rides CRUD", False, "No auth token available")
-            return
-
-        # Test GET all rides
-        response = self.make_request('GET', '/admin/rides', use_auth=True)
-        if response and response.status_code == 200:
-            try:
-                rides = response.json()
-                self.log_result("Rides List", True, f"Retrieved {len(rides)} rides")
-            except json.JSONDecodeError:
-                self.log_result("Rides List", False, "Invalid JSON response")
-        else:
-            self.log_result("Rides List", False, f"Failed: {response.status_code if response else 'No response'}")
-
-        # Test CREATE ride
-        future_date = (datetime.now() + timedelta(days=30)).isoformat()
-        ride_data = {
-            "title": "Test Mountain Ride",
-            "description": "A thrilling mountain adventure test ride",
-            "date": future_date,
-            "startPoint": "ILTMC Clubhouse",
-            "endPoint": "Mountain Peak Resort",
-            "distance": 150,
-            "difficulty": "intermediate",
-            "maxParticipants": 25,
-            "isPublic": True
-        }
-        
-        response = self.make_request('POST', '/admin/rides', ride_data, use_auth=True)
-        created_ride_id = None
-        
-        if response and response.status_code == 201:
-            try:
-                data = response.json()
-                created_ride_id = data.get('id')
-                self.log_result("Rides Create", True, f"Ride created with ID: {created_ride_id}")
-            except json.JSONDecodeError:
-                self.log_result("Rides Create", False, "Invalid JSON response")
-        else:
-            self.log_result("Rides Create", False, f"Failed: {response.status_code if response else 'No response'}")
-
-        # Test UPDATE ride (if created successfully)
-        if created_ride_id:
-            update_data = {
-                "maxParticipants": 30,
-                "difficulty": "advanced"
-            }
-            response = self.make_request('PUT', f'/admin/rides/{created_ride_id}', update_data, use_auth=True)
-            
-            if response and response.status_code == 200:
-                self.log_result("Rides Update", True, "Ride updated successfully")
-            else:
-                self.log_result("Rides Update", False, f"Failed: {response.status_code if response else 'No response'}")
-
-            # Test DELETE ride
-            response = self.make_request('DELETE', f'/admin/rides/{created_ride_id}', use_auth=True)
-            
-            if response and response.status_code == 200:
-                self.log_result("Rides Delete", True, "Ride deleted successfully")
-            else:
-                self.log_result("Rides Delete", False, f"Failed: {response.status_code if response else 'No response'}")
-
-    def test_public_forms(self):
-        """Test public forms (applications, contact, newsletter)"""
-        print("\n=== Testing Public Forms ===")
-        
-        # Test application submission
-        app_data = {
-            "name": "Mike Test Applicant",
-            "email": "mike.test@email.com",
-            "phone": "+91-9876543211",
-            "age": 28,
-            "bike": "Yamaha MT-15",
-            "experience": "5 years",
-            "whyJoin": "Love riding and community spirit",
-            "chapter": "Agartala"
-        }
-        
-        response = self.make_request('POST', '/applications', app_data)
-        if response and response.status_code == 200:
-            try:
-                data = response.json()
-                if 'message' in data and data['message'] == 'Application submitted successfully':
-                    self.log_result("Applications Form", True, "Application submitted successfully")
-                else:
-                    self.log_result("Applications Form", False, f"Unexpected response: {data}")
-            except json.JSONDecodeError:
-                self.log_result("Applications Form", False, "Invalid JSON response")
-        else:
-            self.log_result("Applications Form", False, f"Failed: {response.status_code if response else 'No response'}")
-
-        # Test contact form
-        contact_data = {
-            "name": "Sarah Test Contact",
-            "email": "sarah.test@email.com",
-            "subject": "Test Inquiry",
-            "message": "This is a test contact message"
-        }
-        
-        response = self.make_request('POST', '/contact', contact_data)
-        if response and response.status_code == 200:
-            try:
-                data = response.json()
-                if 'message' in data and data['message'] == 'Message sent successfully':
-                    self.log_result("Contact Form", True, "Contact form submitted successfully")
-                else:
-                    self.log_result("Contact Form", False, f"Unexpected response: {data}")
-            except json.JSONDecodeError:
-                self.log_result("Contact Form", False, "Invalid JSON response")
-        else:
-            self.log_result("Contact Form", False, f"Failed: {response.status_code if response else 'No response'}")
-
-        # Test newsletter signup
-        newsletter_data = {
-            "email": f"newsletter.test.{uuid.uuid4().hex[:8]}@email.com"
-        }
-        
-        response = self.make_request('POST', '/newsletter', newsletter_data)
-        if response and response.status_code == 200:
-            try:
-                data = response.json()
-                if 'message' in data and 'subscribed' in data['message'].lower():
-                    self.log_result("Newsletter Form", True, "Newsletter subscription successful")
-                else:
-                    self.log_result("Newsletter Form", False, f"Unexpected response: {data}")
-            except json.JSONDecodeError:
-                self.log_result("Newsletter Form", False, "Invalid JSON response")
-        else:
-            self.log_result("Newsletter Form", False, f"Failed: {response.status_code if response else 'No response'}")
-
-    def test_attendance_api(self):
-        """Test attendance tracking APIs"""
-        print("\n=== Testing Attendance API ===")
-        
-        if not self.token:
-            self.log_result("Attendance API", False, "No auth token available")
-            return
-
-        # Get attendance stats
-        response = self.make_request('GET', '/admin/attendance/stats', use_auth=True)
-        if response and response.status_code == 200:
-            try:
-                data = response.json()
-                self.log_result("Attendance Stats", True, f"Retrieved attendance stats: {len(data)} member records")
-            except json.JSONDecodeError:
-                self.log_result("Attendance Stats", False, "Invalid JSON response")
-        else:
-            self.log_result("Attendance Stats", False, f"Failed: {response.status_code if response else 'No response'}")
+            self.log_result("Admin Reject - Setup", False, "Failed to create test member for rejection")
 
     def run_all_tests(self):
-        """Run all backend tests"""
-        print("🚀 Starting ILTMC Backend API Test Suite")
+        """Run all backend tests for new features"""
+        print("🚀 Starting ILTMC Backend API Test Suite - NEW FEATURES")
         print(f"🌐 Testing against: {BASE_URL}")
-        print("=" * 60)
+        print("=" * 80)
         
-        # Test in order of priority as specified
-        self.test_auth_login()
-        self.test_public_stats() 
-        self.test_public_apis()
-        self.test_admin_dashboard()
-        self.test_members_crud()
-        self.test_rides_crud()
-        self.test_public_forms()
-        self.test_attendance_api()
+        # Test in order of the flow
+        self.test_admin_login()
+        
+        # Member Signup & Approval Flow
+        self.test_member_signup()
+        self.test_member_profile_pending()
+        self.test_joining_form_submission()
+        self.test_member_profile_form_submitted()
+        self.test_admin_applications_list()
+        self.test_admin_approve_application()
+        self.test_member_profile_approved()
+        
+        # Public Member Profile
+        self.test_public_member_profile()
+        
+        # Gallery Management
+        self.test_gallery_management()
+        
+        # Test rejection flow
+        self.test_admin_reject_application()
         
         # Print final summary
-        print("\n" + "=" * 60)
+        print("\n" + "=" * 80)
         print("📊 FINAL TEST SUMMARY")
-        print("=" * 60)
+        print("=" * 80)
         
         total_tests = len(self.test_results)
         passed_tests = sum(1 for result in self.test_results.values() if result['success'])

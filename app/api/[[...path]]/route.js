@@ -653,9 +653,9 @@ async function handleRoute(request, { params }) {
 
     // ==================== MEMBER AUTH ROUTES ====================
     
-    // Member signup
+    // Member signup - creates account with pending status (needs to fill joining form)
     if (route === '/member/signup' && method === 'POST') {
-      const { email, password, name, roadName, phone, bike, captchaId, captchaAnswer } = await request.json()
+      const { email, password, name, captchaId, captchaAnswer } = await request.json()
 
       // Verify captcha
       if (!verifyCaptcha(captchaId, captchaAnswer)) {
@@ -681,42 +681,98 @@ async function handleRoute(request, { params }) {
       const hashedPassword = await bcrypt.hash(password, 12)
       const memberId = uuidv4()
       
-      // Create member account
+      // Create member account with pending status
       const memberAccount = {
         id: memberId,
         email,
         password: hashedPassword,
+        approvalStatus: 'pending', // pending -> form_submitted -> approved/rejected
         createdAt: new Date()
       }
       await db.collection('member_accounts').insertOne(memberAccount)
 
-      // Create member profile in members collection
+      // Create basic member profile (will be updated when form submitted)
       const memberProfile = {
         id: memberId,
         accountId: memberId,
         name,
-        roadName: roadName || '',
         email,
-        phone: phone || '',
-        bike: bike || '',
-        rank: 'Rubble', // Default rank for new members
-        position: 'Member',
-        chapter: 'Agartala',
-        status: 'active',
-        totalKilometers: 0,
-        ridesCount: 0,
+        approvalStatus: 'pending', // Must fill joining form
         createdAt: new Date()
       }
       await db.collection('members').insertOne(memberProfile)
 
       // Generate token
-      const token = generateToken({ id: memberId, email, role: 'member', name })
+      const token = generateToken({ id: memberId, email, role: 'member', name, approvalStatus: 'pending' })
       
       return handleCORS(NextResponse.json({ 
-        message: 'Account created successfully',
+        message: 'Account created! Please complete the joining form.',
         token,
-        user: { id: memberId, email, name, role: 'member' }
+        user: { id: memberId, email, name, role: 'member', approvalStatus: 'pending' }
       }, { status: 201 }))
+    }
+
+    // Member submit joining form
+    if (route === '/member/joining-form' && method === 'POST') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const body = await request.json()
+      
+      // Validate required documents
+      if (!body.aadhaarCard || !body.drivingLicense) {
+        return handleCORS(NextResponse.json({ error: 'Aadhaar Card and Driving License are mandatory' }, { status: 400 }))
+      }
+
+      // Update member profile with joining form data
+      const updateData = {
+        roadName: body.roadName || '',
+        phone: body.phone || '',
+        bike: body.bike || '',
+        experience: body.experience || '',
+        reason: body.reason || '',
+        chapter: body.chapter || 'Agartala',
+        aadhaarCard: body.aadhaarCard,
+        aadhaarFileName: body.aadhaarFileName,
+        drivingLicense: body.drivingLicense,
+        drivingLicenseFileName: body.drivingLicenseFileName,
+        approvalStatus: 'form_submitted',
+        formSubmittedAt: new Date()
+      }
+
+      await db.collection('members').updateOne(
+        { accountId: user.id },
+        { $set: updateData }
+      )
+
+      await db.collection('member_accounts').updateOne(
+        { id: user.id },
+        { $set: { approvalStatus: 'form_submitted' } }
+      )
+
+      // Send email notification to admin
+      const memberProfile = await db.collection('members').findOne({ accountId: user.id })
+      const emailHtml = `
+        <h2>New Membership Application - ILTMC</h2>
+        <p><strong>Name:</strong> ${memberProfile?.name}</p>
+        <p><strong>Road Name:</strong> ${body.roadName}</p>
+        <p><strong>Email:</strong> ${memberProfile?.email}</p>
+        <p><strong>Phone:</strong> ${body.phone}</p>
+        <p><strong>Bike:</strong> ${body.bike}</p>
+        <p><strong>Experience:</strong> ${body.experience}</p>
+        <p><strong>Reason for Joining:</strong> ${body.reason}</p>
+        <p><strong>Documents:</strong> Aadhaar Card and Driving License attached</p>
+        <hr>
+        <p>Please review this application in the admin panel.</p>
+      `
+      await sendEmailNotification('New Membership Application - ' + memberProfile?.name, emailHtml)
+
+      return handleCORS(NextResponse.json({ 
+        message: 'Application submitted! Waiting for admin approval.',
+        approvalStatus: 'form_submitted'
+      }))
     }
 
     // Member login
@@ -741,7 +797,8 @@ async function handleRoute(request, { params }) {
         id: memberAccount.id, 
         email: memberAccount.email, 
         role: 'member', 
-        name: memberProfile?.name || 'Member'
+        name: memberProfile?.name || 'Member',
+        approvalStatus: memberProfile?.approvalStatus || memberAccount.approvalStatus || 'approved'
       })
       
       return handleCORS(NextResponse.json({ 
@@ -750,7 +807,8 @@ async function handleRoute(request, { params }) {
           id: memberAccount.id, 
           email: memberAccount.email, 
           name: memberProfile?.name || 'Member',
-          role: 'member'
+          role: 'member',
+          approvalStatus: memberProfile?.approvalStatus || memberAccount.approvalStatus || 'approved'
         }
       }))
     }
@@ -767,7 +825,8 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Profile not found' }, { status: 404 }))
       }
 
-      const { _id, ...cleanedProfile } = memberProfile
+      // Don't send documents in profile response
+      const { _id, aadhaarCard, drivingLicense, ...cleanedProfile } = memberProfile
       return handleCORS(NextResponse.json(cleanedProfile))
     }
 
@@ -1319,19 +1378,39 @@ async function handleRoute(request, { params }) {
 
     // ==================== APPLICATIONS ====================
     
-    // Get applications (admin)
+    // Get applications (admin) - includes both signup applications and direct applications
     if (route === '/admin/applications' && method === 'GET') {
       const user = await authenticateRequest(request)
       if (!user || !['super_admin', 'admin'].includes(user.role)) {
         return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
       }
 
+      // Get traditional applications
       const applications = await db.collection('applications').find({}).sort({ createdAt: -1 }).toArray()
-      const cleanedApps = applications.map(({ _id, ...rest }) => rest)
-      return handleCORS(NextResponse.json(cleanedApps))
+      
+      // Get member accounts that have submitted forms (pending approval)
+      const pendingMembers = await db.collection('members')
+        .find({ approvalStatus: { $in: ['pending', 'form_submitted'] } })
+        .sort({ formSubmittedAt: -1, createdAt: -1 })
+        .toArray()
+      
+      // Combine both, marking the source
+      const combinedApps = [
+        ...pendingMembers.map(({ _id, ...m }) => ({
+          ...m,
+          source: 'signup',
+          status: m.approvalStatus === 'form_submitted' ? 'pending' : 'incomplete'
+        })),
+        ...applications.map(({ _id, ...a }) => ({
+          ...a,
+          source: 'direct'
+        }))
+      ]
+      
+      return handleCORS(NextResponse.json(combinedApps))
     }
 
-    // Update application status
+    // Update application status / Approve member
     if (route.startsWith('/admin/applications/') && method === 'PUT') {
       const user = await authenticateRequest(request)
       if (!user || !['super_admin', 'admin'].includes(user.role)) {
@@ -1340,15 +1419,57 @@ async function handleRoute(request, { params }) {
 
       const appId = path[2]
       const body = await request.json()
-      await db.collection('applications').updateOne(
-        { id: appId },
-        { $set: { status: body.status, reviewedBy: user.id, reviewedAt: new Date() } }
-      )
-      return handleCORS(NextResponse.json({ message: 'Application updated' }))
+      
+      // Check if this is a member account or direct application
+      const member = await db.collection('members').findOne({ id: appId })
+      
+      if (member && member.approvalStatus) {
+        // This is a signup member - update their approval status
+        const newStatus = body.status === 'approved' ? 'approved' : 'rejected'
+        
+        await db.collection('members').updateOne(
+          { id: appId },
+          { 
+            $set: { 
+              approvalStatus: newStatus,
+              memberType: body.memberType || 'prospect',
+              rank: newStatus === 'approved' ? 'Rubble' : undefined,
+              position: newStatus === 'approved' ? 'Member' : undefined,
+              status: newStatus === 'approved' ? 'active' : 'rejected',
+              reviewedBy: user.id, 
+              reviewedAt: new Date() 
+            } 
+          }
+        )
+        
+        await db.collection('member_accounts').updateOne(
+          { id: appId },
+          { $set: { approvalStatus: newStatus } }
+        )
+        
+        return handleCORS(NextResponse.json({ message: `Member ${newStatus}` }))
+      } else {
+        // Traditional application
+        await db.collection('applications').updateOne(
+          { id: appId },
+          { $set: { status: body.status, memberType: body.memberType, reviewedBy: user.id, reviewedAt: new Date() } }
+        )
+        return handleCORS(NextResponse.json({ message: 'Application updated' }))
+      }
     }
 
     // ==================== GALLERY ====================
     
+    // Get all gallery items (admin)
+    if (route === '/admin/gallery' && method === 'GET') {
+      const user = await authenticateRequest(request)
+      if (!user) return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+
+      const gallery = await db.collection('gallery').find({}).sort({ createdAt: -1 }).toArray()
+      const cleanedGallery = gallery.map(({ _id, ...rest }) => rest)
+      return handleCORS(NextResponse.json(cleanedGallery))
+    }
+
     // Add to gallery
     if (route === '/admin/gallery' && method === 'POST') {
       const user = await authenticateRequest(request)
@@ -1357,13 +1478,40 @@ async function handleRoute(request, { params }) {
       const body = await request.json()
       const item = {
         id: uuidv4(),
-        ...body,
+        title: body.title || '',
+        description: body.description || '',
+        imageUrl: body.imageUrl,
+        category: body.category || 'general',
         isPublic: body.isPublic ?? true,
         createdAt: new Date(),
         uploadedBy: user.id
       }
       await db.collection('gallery').insertOne(item)
       return handleCORS(NextResponse.json(item, { status: 201 }))
+    }
+
+    // Update gallery item
+    if (route.startsWith('/admin/gallery/') && method === 'PUT') {
+      const user = await authenticateRequest(request)
+      if (!user) return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+
+      const itemId = path[2]
+      const body = await request.json()
+      await db.collection('gallery').updateOne(
+        { id: itemId },
+        { $set: { ...body, updatedAt: new Date() } }
+      )
+      return handleCORS(NextResponse.json({ message: 'Gallery item updated' }))
+    }
+
+    // Delete gallery item
+    if (route.startsWith('/admin/gallery/') && method === 'DELETE') {
+      const user = await authenticateRequest(request)
+      if (!user) return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+
+      const itemId = path[2]
+      await db.collection('gallery').deleteOne({ id: itemId })
+      return handleCORS(NextResponse.json({ message: 'Gallery item deleted' }))
     }
 
     // ==================== SEO SETTINGS ====================

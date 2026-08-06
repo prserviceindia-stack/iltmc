@@ -5,14 +5,14 @@ import { motion } from 'framer-motion'
 import { 
   User, Mail, Phone, Bike, MapPin, Shield, Award, Calendar,
   LogOut, Upload, FileSpreadsheet, CheckCircle, XCircle, Clock,
-  TrendingUp, Eye, EyeOff, RefreshCw, Home, Settings, BarChart3
+  TrendingUp, Eye, EyeOff, RefreshCw, Home, Settings, BarChart3, FileText, AlertCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from 'sonner'
 
@@ -99,7 +99,6 @@ function LoginForm({ onLogin, onSwitchToSignup }) {
         toast.success('Welcome back!')
       } else {
         toast.error(data.error || 'Login failed')
-        // Refresh captcha on error
         const captchaRes = await fetch('/api/captcha/generate')
         const captchaData = await captchaRes.json()
         setCaptchaId(captchaData.captchaId)
@@ -176,7 +175,7 @@ function LoginForm({ onLogin, onSwitchToSignup }) {
             </form>
             <div className="mt-4 text-center">
               <p className="text-gray-400 text-sm">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <button onClick={onSwitchToSignup} className="text-red-500 hover:underline">
                   Sign up
                 </button>
@@ -194,11 +193,10 @@ function LoginForm({ onLogin, onSwitchToSignup }) {
   )
 }
 
-// Signup Form Component
+// Signup Form Component (Simplified - just email/password/name)
 function SignupForm({ onLogin, onSwitchToLogin }) {
   const [formData, setFormData] = useState({
-    name: '', email: '', password: '', confirmPassword: '',
-    roadName: '', phone: '', bike: ''
+    name: '', email: '', password: '', confirmPassword: ''
   })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -225,7 +223,9 @@ function SignupForm({ onLogin, onSwitchToLogin }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
           captchaId,
           captchaAnswer
         })
@@ -235,10 +235,9 @@ function SignupForm({ onLogin, onSwitchToLogin }) {
         localStorage.setItem('iltmc_member_token', data.token)
         localStorage.setItem('iltmc_member_user', JSON.stringify(data.user))
         onLogin(data.user, data.token)
-        toast.success('Account created successfully!')
+        toast.success('Account created! Please complete the joining form.')
       } else {
         toast.error(data.error || 'Signup failed')
-        // Refresh captcha on error
         const captchaRes = await fetch('/api/captcha/generate')
         const captchaData = await captchaRes.json()
         setCaptchaId(captchaData.captchaId)
@@ -264,30 +263,19 @@ function SignupForm({ onLogin, onSwitchToLogin }) {
             <CardTitle className="text-2xl" style={{ fontFamily: 'Oswald, sans-serif' }}>
               MEMBER <span className="text-red-500">SIGNUP</span>
             </CardTitle>
-            <CardDescription>Create your member account</CardDescription>
+            <CardDescription>Create your account to join ILTMC</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Full Name *</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="bg-zinc-800 border-zinc-700"
-                    placeholder="Your name"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Road Name</Label>
-                  <Input
-                    value={formData.roadName}
-                    onChange={(e) => setFormData({...formData, roadName: e.target.value})}
-                    className="bg-zinc-800 border-zinc-700"
-                    placeholder="Nickname"
-                  />
-                </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label>Full Name *</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="bg-zinc-800 border-zinc-700"
+                  placeholder="Your full name"
+                  required
+                />
               </div>
               <div>
                 <Label>Email *</Label>
@@ -300,58 +288,36 @@ function SignupForm({ onLogin, onSwitchToLogin }) {
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Password *</Label>
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      value={formData.password}
-                      onChange={(e) => setFormData({...formData, password: e.target.value})}
-                      className="bg-zinc-800 border-zinc-700 pr-10"
-                      placeholder="Min 6 chars"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                    >
-                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <Label>Confirm *</Label>
+              <div>
+                <Label>Password *</Label>
+                <div className="relative">
                   <Input
                     type={showPassword ? 'text' : 'password'}
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
-                    className="bg-zinc-800 border-zinc-700"
-                    placeholder="Repeat password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    className="bg-zinc-800 border-zinc-700 pr-10"
+                    placeholder="Min 6 characters"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  >
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Phone</Label>
-                  <Input
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    className="bg-zinc-800 border-zinc-700"
-                    placeholder="+91..."
-                  />
-                </div>
-                <div>
-                  <Label>Bike</Label>
-                  <Input
-                    value={formData.bike}
-                    onChange={(e) => setFormData({...formData, bike: e.target.value})}
-                    className="bg-zinc-800 border-zinc-700"
-                    placeholder="Your bike"
-                  />
-                </div>
+              <div>
+                <Label>Confirm Password *</Label>
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                  className="bg-zinc-800 border-zinc-700"
+                  placeholder="Repeat password"
+                  required
+                />
               </div>
 
               <MathCaptcha
@@ -378,6 +344,301 @@ function SignupForm({ onLogin, onSwitchToLogin }) {
           </CardContent>
         </Card>
         <div className="mt-4 text-center">
+          <a href="/" className="text-gray-400 hover:text-white text-sm flex items-center justify-center gap-2">
+            <Home size={14} /> Back to Homepage
+          </a>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// Joining Form Component (shown when status is 'pending')
+function JoiningForm({ token, onSubmit }) {
+  const [formData, setFormData] = useState({
+    roadName: '', phone: '', bike: '', experience: '', reason: '', chapter: 'Agartala',
+    aadhaarCard: '', aadhaarFileName: '', drivingLicense: '', drivingLicenseFileName: ''
+  })
+  const [loading, setLoading] = useState(false)
+  const [chapters, setChapters] = useState([])
+
+  useEffect(() => {
+    fetchChapters()
+  }, [])
+
+  const fetchChapters = async () => {
+    try {
+      const res = await fetch('/api/chapters')
+      setChapters(await res.json())
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const handleFileUpload = (e, field) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB')
+      return
+    }
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a JPG, PNG, or PDF file')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1]
+      setFormData({
+        ...formData,
+        [field]: base64,
+        [field + 'FileName']: file.name
+      })
+      toast.success(`${field === 'aadhaarCard' ? 'Aadhaar Card' : 'Driving License'} uploaded`)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    
+    if (!formData.aadhaarCard || !formData.drivingLicense) {
+      toast.error('Please upload both Aadhaar Card and Driving License')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/member/joining-form', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success('Application submitted! Waiting for admin approval.')
+        onSubmit()
+      } else {
+        toast.error(data.error || 'Failed to submit')
+      }
+    } catch (error) {
+      toast.error('Something went wrong')
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div className="min-h-screen bg-black py-8 px-4">
+      <div className="max-w-2xl mx-auto">
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader className="text-center">
+            <img src={LOGO_URL} alt="ILTMC" className="w-20 h-20 mx-auto mb-4" />
+            <CardTitle className="text-2xl" style={{ fontFamily: 'Oswald, sans-serif' }}>
+              COMPLETE YOUR <span className="text-red-500">APPLICATION</span>
+            </CardTitle>
+            <CardDescription>Fill out the joining form to become a member</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Road Name (Nickname)</Label>
+                  <Input
+                    value={formData.roadName}
+                    onChange={(e) => setFormData({...formData, roadName: e.target.value})}
+                    className="bg-zinc-800 border-zinc-700"
+                    placeholder="Your biker nickname"
+                  />
+                </div>
+                <div>
+                  <Label>Phone *</Label>
+                  <Input
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    className="bg-zinc-800 border-zinc-700"
+                    placeholder="+91 xxxxxxxxxx"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Your Bike *</Label>
+                  <Input
+                    value={formData.bike}
+                    onChange={(e) => setFormData({...formData, bike: e.target.value})}
+                    className="bg-zinc-800 border-zinc-700"
+                    placeholder="e.g., Royal Enfield Classic 350"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Chapter</Label>
+                  <select
+                    value={formData.chapter}
+                    onChange={(e) => setFormData({...formData, chapter: e.target.value})}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-md p-2"
+                  >
+                    <option value="Agartala">Agartala</option>
+                    {chapters.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <Label>Riding Experience *</Label>
+                <Input
+                  value={formData.experience}
+                  onChange={(e) => setFormData({...formData, experience: e.target.value})}
+                  className="bg-zinc-800 border-zinc-700"
+                  placeholder="e.g., 5 years of riding"
+                  required
+                />
+              </div>
+              <div>
+                <Label>Why do you want to join ILTMC? *</Label>
+                <Textarea
+                  value={formData.reason}
+                  onChange={(e) => setFormData({...formData, reason: e.target.value})}
+                  className="bg-zinc-800 border-zinc-700"
+                  placeholder="Tell us about yourself and your passion for riding..."
+                  rows={4}
+                  required
+                />
+              </div>
+
+              {/* Document Uploads */}
+              <div className="border-t border-zinc-800 pt-6">
+                <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                  <FileText className="text-red-500" size={20} />
+                  Required Documents (Self-Attested)
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Aadhaar Card *</Label>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.pdf"
+                        onChange={(e) => handleFileUpload(e, 'aadhaarCard')}
+                        className="hidden"
+                        id="aadhaar-upload"
+                      />
+                      <label
+                        htmlFor="aadhaar-upload"
+                        className={`flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                          formData.aadhaarCard 
+                            ? 'border-green-500 bg-green-500/10' 
+                            : 'border-zinc-700 hover:border-red-500'
+                        }`}
+                      >
+                        {formData.aadhaarCard ? (
+                          <>
+                            <CheckCircle className="text-green-500" size={20} />
+                            <span className="text-sm text-green-500 truncate">{formData.aadhaarFileName || 'Uploaded'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="text-gray-400" size={20} />
+                            <span className="text-sm text-gray-400">Upload Aadhaar</span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Driving License *</Label>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.pdf"
+                        onChange={(e) => handleFileUpload(e, 'drivingLicense')}
+                        className="hidden"
+                        id="dl-upload"
+                      />
+                      <label
+                        htmlFor="dl-upload"
+                        className={`flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                          formData.drivingLicense 
+                            ? 'border-green-500 bg-green-500/10' 
+                            : 'border-zinc-700 hover:border-red-500'
+                        }`}
+                      >
+                        {formData.drivingLicense ? (
+                          <>
+                            <CheckCircle className="text-green-500" size={20} />
+                            <span className="text-sm text-green-500 truncate">{formData.drivingLicenseFileName || 'Uploaded'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="text-gray-400" size={20} />
+                            <span className="text-sm text-gray-400">Upload DL</span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Max 5MB each. Accepted: JPG, PNG, PDF</p>
+              </div>
+
+              <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 py-6 text-lg" disabled={loading}>
+                {loading ? 'Submitting...' : 'SUBMIT APPLICATION'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// Waiting for Approval Component
+function WaitingApproval({ profile, onLogout }) {
+  return (
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md text-center"
+      >
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardContent className="p-8">
+            <div className="w-20 h-20 mx-auto mb-6 bg-yellow-500/20 rounded-full flex items-center justify-center">
+              <Clock className="text-yellow-500" size={40} />
+            </div>
+            <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Oswald, sans-serif' }}>
+              APPLICATION <span className="text-yellow-500">PENDING</span>
+            </h2>
+            <p className="text-gray-400 mb-6">
+              Your application has been submitted and is waiting for admin approval. 
+              We&apos;ll notify you once your membership is approved.
+            </p>
+            
+            <div className="bg-zinc-800/50 rounded-lg p-4 text-left mb-6">
+              <h4 className="font-medium mb-2">Application Details:</h4>
+              <p className="text-sm text-gray-400">Name: {profile?.name}</p>
+              <p className="text-sm text-gray-400">Email: {profile?.email}</p>
+              <p className="text-sm text-gray-400">Bike: {profile?.bike || 'Not specified'}</p>
+              <p className="text-sm text-gray-400">
+                Submitted: {profile?.formSubmittedAt ? new Date(profile.formSubmittedAt).toLocaleDateString() : 'Recently'}
+              </p>
+            </div>
+
+            <Button variant="outline" onClick={onLogout} className="border-zinc-700">
+              <LogOut size={16} className="mr-2" /> Logout
+            </Button>
+          </CardContent>
+        </Card>
+        <div className="mt-4">
           <a href="/" className="text-gray-400 hover:text-white text-sm flex items-center justify-center gap-2">
             <Home size={14} /> Back to Homepage
           </a>
@@ -428,6 +689,21 @@ function DashboardTab({ profile, stats }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Member Type Badge */}
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium">Membership Status</h3>
+              <p className="text-gray-400 text-sm">Your current membership type</p>
+            </div>
+            <Badge className={profile?.memberType === 'member' ? 'bg-green-600 text-lg px-4 py-2' : 'bg-orange-600 text-lg px-4 py-2'}>
+              {profile?.memberType === 'member' ? '✓ Permanent Member' : '⏳ Prospect'}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader>
@@ -626,7 +902,9 @@ function AttendanceTab({ token }) {
       const res = await fetch('/api/member/attendance', {
         headers: { Authorization: `Bearer ${token}` }
       })
-      setAttendance(await res.json())
+      if (res.ok) {
+        setAttendance(await res.json())
+      }
     } catch (error) {
       console.error(error)
     }
@@ -692,7 +970,9 @@ function RideUploadTab({ token }) {
       const res = await fetch('/api/member/ride-excel', {
         headers: { Authorization: `Bearer ${token}` }
       })
-      setUploads(await res.json())
+      if (res.ok) {
+        setUploads(await res.json())
+      }
     } catch (error) {
       console.error(error)
     }
@@ -703,7 +983,6 @@ function RideUploadTab({ token }) {
     const file = e.target.files[0]
     if (!file) return
 
-    // Check file type
     const validTypes = [
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -716,7 +995,6 @@ function RideUploadTab({ token }) {
 
     setUploading(true)
     try {
-      // Read file as base64
       const reader = new FileReader()
       reader.onload = async () => {
         const base64Data = reader.result.split(',')[1]
@@ -754,7 +1032,7 @@ function RideUploadTab({ token }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>Ride Points Upload</h1>
+        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>Rank Points Upload</h1>
         <p className="text-gray-400">Upload your ride data Excel sheets</p>
       </div>
 
@@ -956,7 +1234,6 @@ export default function MemberPortal() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing session
     const savedToken = localStorage.getItem('iltmc_member_token')
     const savedUser = localStorage.getItem('iltmc_member_user')
     if (savedToken && savedUser) {
@@ -979,7 +1256,10 @@ export default function MemberPortal() {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) {
-        setProfile(await res.json())
+        const data = await res.json()
+        setProfile(data)
+        // Update user with latest approval status
+        setUser(prev => ({ ...prev, approvalStatus: data.approvalStatus }))
       }
     } catch (error) {
       console.error(error)
@@ -1013,6 +1293,10 @@ export default function MemberPortal() {
     setStats(null)
   }
 
+  const handleFormSubmit = () => {
+    fetchProfile()
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -1024,6 +1308,7 @@ export default function MemberPortal() {
     )
   }
 
+  // Not logged in
   if (!user || !token) {
     if (isLogin) {
       return <LoginForm onLogin={handleLogin} onSwitchToSignup={() => setIsLogin(false)} />
@@ -1032,11 +1317,41 @@ export default function MemberPortal() {
     }
   }
 
+  // Check approval status
+  const approvalStatus = profile?.approvalStatus || user?.approvalStatus
+
+  // Show joining form if status is pending
+  if (approvalStatus === 'pending') {
+    return <JoiningForm token={token} onSubmit={handleFormSubmit} />
+  }
+
+  // Show waiting screen if form submitted but not approved
+  if (approvalStatus === 'form_submitted') {
+    return <WaitingApproval profile={profile} onLogout={handleLogout} />
+  }
+
+  // Show rejected message
+  if (approvalStatus === 'rejected') {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <Card className="bg-zinc-900/50 border-zinc-800 max-w-md text-center">
+          <CardContent className="p-8">
+            <XCircle className="mx-auto text-red-500 mb-4" size={48} />
+            <h2 className="text-2xl font-bold mb-2">Application Rejected</h2>
+            <p className="text-gray-400 mb-4">Unfortunately, your membership application was not approved.</p>
+            <Button variant="outline" onClick={handleLogout}>Logout</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Approved - show full dashboard
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'attendance', label: 'Attendance', icon: Calendar },
-    { id: 'upload', label: 'Ride Upload', icon: Upload },
+    { id: 'upload', label: 'Rank Points', icon: Upload },
     { id: 'password', label: 'Password', icon: Settings },
   ]
 
@@ -1055,7 +1370,12 @@ export default function MemberPortal() {
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium">{user?.name}</p>
-              <p className="text-xs text-gray-400">{profile?.rank || 'Member'}</p>
+              <div className="flex items-center gap-2 justify-end">
+                <p className="text-xs text-gray-400">{profile?.rank || 'Member'}</p>
+                <Badge className={profile?.memberType === 'member' ? 'bg-green-600 text-xs' : 'bg-orange-600 text-xs'}>
+                  {profile?.memberType === 'member' ? 'Member' : 'Prospect'}
+                </Badge>
+              </div>
             </div>
             <Button variant="outline" size="sm" onClick={handleLogout} className="border-zinc-700">
               <LogOut size={16} className="mr-2" /> Logout

@@ -316,6 +316,66 @@ backend:
         - agent: "testing"
         - comment: "✅ Rides and Events with images working perfectly. Successfully tested: Create ride with imageUrl, Update ride imageUrl, Create event with imageUrl and externalLink, Update event imageUrl and externalLink. All image URLs and external links are properly stored and returned in API responses."
 
+  - task: "Member Signup & Approval Flow"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "POST /api/member/signup creates account with status 'pending', POST /api/member/joining-form submits form with documents (changes to 'form_submitted'), GET /api/member/profile returns approvalStatus, PUT /api/admin/applications/:id approves/rejects"
+        - working: true
+        - agent: "testing"
+        - comment: "✅ Member Signup & Approval Flow working perfectly. Successfully tested complete flow: 1) Member signup creates account with 'pending' status, 2) Member profile returns approvalStatus field, 3) Joining form submission with documents changes status to 'form_submitted', 4) Admin can approve application (status changes to 'approved'), 5) Admin can reject application (status changes to 'rejected'). All status transitions working correctly."
+
+  - task: "Gallery Management APIs"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "GET /api/admin/gallery (admin list), POST /api/admin/gallery (add image), PUT /api/admin/gallery/:id (update), DELETE /api/admin/gallery/:id (delete), GET /api/gallery (public)"
+        - working: true
+        - agent: "testing"
+        - comment: "✅ Gallery Management APIs working excellently. Successfully tested: 1) Admin list gallery items (GET /admin/gallery), 2) Create gallery item with imageUrl (POST /admin/gallery), 3) Update gallery item (PUT /admin/gallery/:id), 4) Public gallery endpoint (GET /gallery), 5) Delete gallery item (DELETE /admin/gallery/:id). All CRUD operations functioning correctly with proper authentication."
+
+  - task: "Public Member Profile with Rank Uploads"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "GET /api/members/:id/profile returns public member profile with rankUploads array"
+        - working: true
+        - agent: "testing"
+        - comment: "✅ Public Member Profile API working correctly. Successfully tested: GET /members/:id/profile returns member profile with rankUploads field containing approved ride uploads. Profile data properly formatted without sensitive information."
+
+  - task: "Updated Application Flow with Source Field"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "GET /api/admin/applications now includes both traditional applications (source: 'direct') and member signup applications (source: 'signup')"
+        - working: true
+        - agent: "testing"
+        - comment: "✅ Updated Application Flow working perfectly. Successfully tested: GET /admin/applications returns combined list of applications with source field. Applications from member signup have 'source: signup', traditional applications have 'source: direct'. Both types properly included in admin applications list."
+
 frontend:
   - task: "Public Website - Hero Section"
     implemented: true
@@ -346,7 +406,7 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 3
+  test_sequence: 4
   run_ui: false
 
 test_plan:
@@ -360,3 +420,5 @@ agent_communication:
     - message: "Initial MVP implementation complete. Testing agent should test all backend APIs using auth token obtained from login API. Default credentials: admin@iltmc.com / admin123"
     - agent: "testing"
     - message: "✅ BACKEND TESTING COMPLETE - All backend APIs tested successfully! 95.7% success rate (22/23 tests passed). All core functionality working: Auth, CRUD operations, Dashboard, Public APIs, Forms. One minor timeout issue on invalid login test but manual verification confirms proper 401 error handling. System is production-ready from backend perspective."
+    - agent: "testing"
+    - message: "✅ NEW FEATURES TESTING COMPLETE - All new backend features tested successfully! 16/16 tests passed (100% success rate). Tested features: 1) Member Signup & Approval Flow (signup → pending → form submission → form_submitted → admin approval/rejection → approved/rejected), 2) Gallery Management APIs (full CRUD operations for admin and public gallery endpoint), 3) Public Member Profile with rank uploads, 4) Updated Application Flow with source field (signup vs direct applications). All APIs working correctly with proper authentication, validation, and status transitions. System is production-ready."

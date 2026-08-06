@@ -116,6 +116,7 @@ function Sidebar({ activeTab, setActiveTab, user, onLogout, collapsed, setCollap
     { id: 'rides', label: 'Rides', icon: Bike },
     { id: 'attendance', label: 'Attendance', icon: CheckCircle },
     { id: 'events', label: 'Events', icon: Calendar },
+    { id: 'gallery', label: 'Gallery', icon: Image },
     { id: 'applications', label: 'Applications', icon: FileText },
     { id: 'contacts', label: 'Messages', icon: Mail },
     { id: 'seo', label: 'SEO Settings', icon: Settings },
@@ -1523,6 +1524,213 @@ function ContactsTab({ token }) {
   )
 }
 
+// Gallery Tab
+function GalleryTab({ token }) {
+  const [gallery, setGallery] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showDialog, setShowDialog] = useState(false)
+  const [editingItem, setEditingItem] = useState(null)
+  const [formData, setFormData] = useState({
+    title: '', description: '', imageUrl: '', category: 'general', isPublic: true
+  })
+
+  const categories = ['general', 'rides', 'events', 'members', 'bikes', 'achievements']
+
+  useEffect(() => {
+    fetchGallery()
+  }, [])
+
+  const fetchGallery = async () => {
+    try {
+      const res = await fetch('/api/admin/gallery', { headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) {
+        setGallery(await res.json())
+      }
+    } catch (error) {
+      console.error(error)
+    }
+    setLoading(false)
+  }
+
+  const handleSave = async () => {
+    if (!formData.imageUrl) {
+      toast.error('Image URL is required')
+      return
+    }
+
+    try {
+      const url = editingItem ? `/api/admin/gallery/${editingItem.id}` : '/api/admin/gallery'
+      const method = editingItem ? 'PUT' : 'POST'
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      })
+      if (res.ok) {
+        toast.success(editingItem ? 'Image updated' : 'Image added to gallery')
+        setShowDialog(false)
+        setEditingItem(null)
+        setFormData({ title: '', description: '', imageUrl: '', category: 'general', isPublic: true })
+        fetchGallery()
+      }
+    } catch (error) {
+      toast.error('Failed to save')
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this image?')) return
+    try {
+      await fetch(`/api/admin/gallery/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      toast.success('Image deleted')
+      fetchGallery()
+    } catch (error) {
+      toast.error('Failed to delete')
+    }
+  }
+
+  const openEdit = (item) => {
+    setEditingItem(item)
+    setFormData({
+      title: item.title || '',
+      description: item.description || '',
+      imageUrl: item.imageUrl || '',
+      category: item.category || 'general',
+      isPublic: item.isPublic ?? true
+    })
+    setShowDialog(true)
+  }
+
+  const openAdd = () => {
+    setEditingItem(null)
+    setFormData({ title: '', description: '', imageUrl: '', category: 'general', isPublic: true })
+    setShowDialog(true)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>Gallery</h1>
+          <p className="text-gray-400">Manage gallery images</p>
+        </div>
+        <Button onClick={openAdd} className="bg-red-600 hover:bg-red-700">
+          <Plus size={16} className="mr-2" /> Add Image
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-12">Loading...</div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {gallery.map((item) => (
+            <Card key={item.id} className="bg-zinc-900/50 border-zinc-800 overflow-hidden group">
+              <div className="aspect-square bg-zinc-800 relative">
+                <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => openEdit(item)}>
+                    <Edit size={14} />
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleDelete(item.id)}>
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
+              </div>
+              <CardContent className="p-3">
+                <p className="font-medium truncate">{item.title || 'Untitled'}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <Badge variant="outline" className="text-xs">{item.category}</Badge>
+                  {!item.isPublic && <Badge className="bg-yellow-600 text-xs">Hidden</Badge>}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          {gallery.length === 0 && (
+            <div className="col-span-full text-center py-12 text-gray-500">
+              No images in gallery. Add your first image!
+            </div>
+          )}
+        </div>
+      )}
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="bg-zinc-900 border-zinc-800">
+          <DialogHeader>
+            <DialogTitle>{editingItem ? 'Edit Image' : 'Add Image to Gallery'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Image URL *</Label>
+              <Input
+                value={formData.imageUrl}
+                onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
+                className="bg-zinc-800 border-zinc-700"
+                placeholder="https://..."
+              />
+              {formData.imageUrl && (
+                <div className="mt-2 h-40 bg-zinc-800 rounded overflow-hidden">
+                  <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+            <div>
+              <Label>Title</Label>
+              <Input
+                value={formData.title}
+                onChange={(e) => setFormData({...formData, title: e.target.value})}
+                className="bg-zinc-800 border-zinc-700"
+                placeholder="Image title"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                className="bg-zinc-800 border-zinc-700"
+                placeholder="Image description"
+              />
+            </div>
+            <div>
+              <Label>Category</Label>
+              <Select value={formData.category} onValueChange={(v) => setFormData({...formData, category: v})}>
+                <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  {categories.map(c => (
+                    <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={formData.isPublic}
+                onCheckedChange={(v) => setFormData({...formData, isPublic: v})}
+              />
+              <Label>Public (show on website)</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
+            <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">
+              {editingItem ? 'Update' : 'Add'} Image
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
 // SEO Tab
 function SEOTab({ token }) {
   const [seo, setSeo] = useState({
@@ -2916,6 +3124,7 @@ export default function AdminPage() {
       case 'rides': return <RidesTab token={token} />
       case 'attendance': return <AttendanceTab token={token} />
       case 'events': return <EventsTab token={token} />
+      case 'gallery': return <GalleryTab token={token} />
       case 'applications': return <ApplicationsTab token={token} />
       case 'contacts': return <ContactsTab token={token} />
       case 'seo': return <SEOTab token={token} />
