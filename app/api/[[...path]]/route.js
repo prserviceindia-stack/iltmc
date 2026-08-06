@@ -1263,12 +1263,18 @@ async function handleRoute(request, { params }) {
       }
 
       const partnerId = path[2]
+      // Resolve partner account/member ids so old + new message ids both match
+      const partnerMember = await db.collection('members').findOne(
+        { $or: [{ accountId: partnerId }, { id: partnerId }] },
+        { projection: { _id: 0, accountId: 1, id: 1 } }
+      )
+      const partnerIds = [...new Set([partnerId, partnerMember?.accountId, partnerMember?.id].filter(Boolean))]
       
       const messages = await db.collection('chat_messages')
         .find({
           $or: [
-            { senderId: user.id, receiverId: partnerId },
-            { senderId: partnerId, receiverId: user.id }
+            { senderId: user.id, receiverId: { $in: partnerIds } },
+            { senderId: { $in: partnerIds }, receiverId: user.id }
           ]
         })
         .sort({ createdAt: 1 })
@@ -1277,7 +1283,7 @@ async function handleRoute(request, { params }) {
 
       // Mark messages as read
       await db.collection('chat_messages').updateMany(
-        { senderId: partnerId, receiverId: user.id, read: false },
+        { senderId: { $in: partnerIds }, receiverId: user.id, read: false },
         { $set: { read: true, readAt: new Date() } }
       )
 
@@ -1298,11 +1304,18 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Receiver and message required' }, { status: 400 }))
       }
 
+      // Normalize receiver to accountId when possible (JWT ids are account ids)
+      const receiverMember = await db.collection('members').findOne(
+        { $or: [{ accountId: receiverId }, { id: receiverId }] },
+        { projection: { _id: 0, accountId: 1, id: 1 } }
+      )
+      const normalizedReceiverId = receiverMember?.accountId || receiverMember?.id || receiverId
+
       const chatMessage = {
         id: uuidv4(),
         senderId: user.id,
         senderName: user.name,
-        receiverId,
+        receiverId: normalizedReceiverId,
         message: message.trim(),
         read: false,
         createdAt: new Date()

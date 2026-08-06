@@ -6,7 +6,7 @@ import {
   User, Mail, Phone, Bike, MapPin, Shield, Award, Calendar,
   LogOut, Upload, FileSpreadsheet, CheckCircle, XCircle, Clock,
   TrendingUp, Eye, EyeOff, RefreshCw, Home, Settings, BarChart3, FileText, AlertCircle,
-  MessageCircle, Send, Camera, Link, ExternalLink, Circle
+  MessageCircle, Send, Camera, Link, ExternalLink, Circle, ArrowLeft
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -1213,18 +1213,24 @@ function ChatTab({ token, profile }) {
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
-  const [membersLoading, setMembersLoading] = useState(true)
+  const [membersLoading, setMembersLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [viewMode, setViewMode] = useState('conversations') // 'conversations' or 'members'
   const [searchQuery, setSearchQuery] = useState('')
   const messagesEndRef = useRef(null)
+  const myIds = [profile?.accountId, profile?.id].filter(Boolean)
 
   useEffect(() => {
     fetchConversations()
-    fetchAllMembers()
-    const interval = setInterval(fetchConversations, 5000) // Refresh every 5s
+    const interval = setInterval(fetchConversations, 5000)
     return () => clearInterval(interval)
-  }, [])
+  }, [token])
+
+  useEffect(() => {
+    if (viewMode === 'members') {
+      fetchAllMembers()
+    }
+  }, [viewMode, profile?.id, profile?.accountId])
 
   useEffect(() => {
     if (selectedPartner) {
@@ -1258,19 +1264,30 @@ function ChatTab({ token, profile }) {
       const res = await fetch('/api/members/public')
       if (res.ok) {
         const members = await res.json()
-        // Filter out current user and only approved members
-        setAllMembers(members.filter(m => 
-          m.id !== profile?.id &&
-          m.accountId !== profile?.id &&
-          m.id !== profile?.accountId &&
-          m.accountId !== profile?.accountId &&
-          (m.approvalStatus === 'approved' || !m.approvalStatus)
-        ))
+        const list = Array.isArray(members) ? members : []
+        // Chat auth uses accountId — prefer that as partner id
+        setAllMembers(list.filter((m) => {
+          const ids = [m.id, m.accountId].filter(Boolean)
+          const isSelf = ids.some((id) => myIds.includes(id))
+          const approved = m.approvalStatus === 'approved' || !m.approvalStatus
+          return !isSelf && approved
+        }))
+      } else {
+        toast.error('Failed to load members')
+        setAllMembers([])
       }
     } catch (error) {
       console.error(error)
+      toast.error('Failed to load members')
+      setAllMembers([])
     }
     setMembersLoading(false)
+  }
+
+  const openChatWith = (partner) => {
+    setSelectedPartner(partner)
+    setViewMode('conversations')
+    setSearchQuery('')
   }
 
   const fetchMessages = async (partnerId) => {
@@ -1321,6 +1338,9 @@ function ChatTab({ token, profile }) {
     member.roadName?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const showList = !selectedPartner
+  const showChat = !!selectedPartner
+
   return (
     <div className="space-y-6">
       <div>
@@ -1331,16 +1351,21 @@ function ChatTab({ token, profile }) {
         <p className="text-gray-400">Connect with fellow club members</p>
       </div>
 
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="bg-zinc-900/50 border-zinc-800 overflow-hidden">
         <CardContent className="p-0">
-          <div className="flex h-[600px]">
+          <div className="flex flex-col md:flex-row h-[70vh] min-h-[480px] md:h-[600px]">
             {/* Sidebar - Conversations or Members List */}
-            <div className="w-1/3 border-r border-zinc-800 flex flex-col">
+            <div
+              className={`w-full md:w-1/3 md:border-r border-zinc-800 flex flex-col min-h-0 ${
+                showChat ? 'hidden md:flex' : 'flex'
+              }`}
+            >
               {/* Toggle Tabs */}
-              <div className="p-2 border-b border-zinc-800 flex gap-2">
+              <div className="p-2 border-b border-zinc-800 flex gap-2 shrink-0">
                 <button
+                  type="button"
                   onClick={() => setViewMode('conversations')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     viewMode === 'conversations'
                       ? 'bg-red-600 text-white'
                       : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
@@ -1352,8 +1377,9 @@ function ChatTab({ token, profile }) {
                   )}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setViewMode('members')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     viewMode === 'members'
                       ? 'bg-red-600 text-white'
                       : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
@@ -1362,9 +1388,9 @@ function ChatTab({ token, profile }) {
                   All Members
                 </button>
               </div>
-              {/* Search Bar (only for members view) */}
+
               {viewMode === 'members' && (
-                <div className="p-3 border-b border-zinc-800">
+                <div className="p-3 border-b border-zinc-800 shrink-0">
                   <Input
                     placeholder="Search members..."
                     value={searchQuery}
@@ -1374,114 +1400,140 @@ function ChatTab({ token, profile }) {
                 </div>
               )}
 
-              <ScrollArea className="flex-1">
-                {/* Conversations View */}
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 {viewMode === 'conversations' && (
                   <>
                     {loading ? (
                       <LoadingSpinner label="Loading chat..." />
                     ) : conversations.length > 0 ? (
                       conversations.map((conv) => (
-                    <button
-                      key={conv.partnerId}
-                      onClick={() => setSelectedPartner({
-                        id: conv.partnerId,
-                        name: conv.partnerName,
-                        roadName: conv.partnerRoadName,
-                        picture: conv.partnerPicture
-                      })}
-                      className={`w-full p-4 border-b border-zinc-800 hover:bg-zinc-800/50 text-left transition-colors ${
-                        selectedPartner?.id === conv.partnerId ? 'bg-zinc-800/50' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
-                          {conv.partnerPicture ? (
-                            <img src={conv.partnerPicture} alt={conv.partnerName} className="w-full h-full object-cover" />
-                          ) : (
-                            conv.partnerName?.charAt(0) || '?'
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className="font-medium truncate">{conv.partnerName}</p>
-                            {conv.unreadCount > 0 && (
-                              <Badge className="bg-red-600 text-xs">{conv.unreadCount}</Badge>
-                            )}
+                        <button
+                          type="button"
+                          key={conv.partnerId}
+                          onClick={() => openChatWith({
+                            id: conv.partnerId,
+                            name: conv.partnerName,
+                            roadName: conv.partnerRoadName,
+                            picture: conv.partnerPicture
+                          })}
+                          className={`w-full p-4 border-b border-zinc-800 hover:bg-zinc-800/50 text-left transition-colors ${
+                            selectedPartner?.id === conv.partnerId ? 'bg-zinc-800/50' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+                              {conv.partnerPicture ? (
+                                <img src={conv.partnerPicture} alt={conv.partnerName} className="w-full h-full object-cover" />
+                              ) : (
+                                conv.partnerName?.charAt(0) || '?'
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="font-medium truncate">{conv.partnerName}</p>
+                                {(conv.unreadCount || conv.unread) > 0 && (
+                                  <Badge className="bg-red-600 text-xs">{conv.unreadCount || conv.unread}</Badge>
+                                )}
+                              </div>
+                              {conv.partnerRoadName && (
+                                <p className="text-xs text-red-500 truncate">&quot;{conv.partnerRoadName}&quot;</p>
+                              )}
+                              <p className="text-xs text-gray-500 truncate">{conv.lastMessage}</p>
+                            </div>
                           </div>
-                          {conv.partnerRoadName && (
-                            <p className="text-xs text-red-500 truncate">&quot;{conv.partnerRoadName}&quot;</p>
-                          )}
-                          <p className="text-xs text-gray-500 truncate">{conv.lastMessage}</p>
-                        </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="text-center p-8 text-gray-500">
+                        <MessageCircle size={48} className="mx-auto mb-3 opacity-30" />
+                        <p className="mb-2">No conversations yet</p>
+                        <p className="text-sm text-gray-600 mb-4">Tap All Members to start chatting</p>
+                        <Button
+                          type="button"
+                          className="bg-red-600 hover:bg-red-700"
+                          onClick={() => setViewMode('members')}
+                        >
+                          Browse All Members
+                        </Button>
                       </div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="text-center p-8 text-gray-500">
-                    <MessageCircle size={48} className="mx-auto mb-3 opacity-30" />
-                    <p className="mb-2">No conversations yet</p>
-                    <p className="text-sm text-gray-600">Click &quot;All Members&quot; to start chatting</p>
-                  </div>
-                )}
+                    )}
                   </>
                 )}
 
-                {/* All Members View */}
                 {viewMode === 'members' && (
                   <>
                     {membersLoading ? (
                       <LoadingSpinner label="Loading members..." />
                     ) : filteredMembers.length > 0 ? (
-                      filteredMembers.map((member) => (
-                        <button
-                          key={member.id}
-                          onClick={() => {
-                            setSelectedPartner({
-                              id: member.id,
+                      filteredMembers.map((member) => {
+                        const chatId = member.accountId || member.id
+                        return (
+                          <button
+                            type="button"
+                            key={chatId || member.id}
+                            onClick={() => openChatWith({
+                              id: chatId,
                               name: member.name,
                               roadName: member.roadName,
-                              picture: member.photoUrl || member.profilePicture
-                            })
-                            setViewMode('conversations')
-                          }}
-                          className="w-full p-4 border-b border-zinc-800 hover:bg-zinc-800/50 text-left transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
-                              {(member.photoUrl || member.profilePicture) ? (
-                                <img src={member.photoUrl || member.profilePicture} alt={member.name} className="w-full h-full object-cover" />
-                              ) : (
-                                member.name?.charAt(0) || '?'
-                              )}
+                              picture: member.photoUrl || null
+                            })}
+                            className="w-full p-4 border-b border-zinc-800 hover:bg-zinc-800/50 text-left transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+                                {member.photoUrl ? (
+                                  <img src={member.photoUrl} alt={member.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  member.name?.charAt(0) || '?'
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{member.name}</p>
+                                {member.roadName && (
+                                  <p className="text-xs text-red-500 truncate">&quot;{member.roadName}&quot;</p>
+                                )}
+                                <p className="text-xs text-gray-500">{member.rank || 'Member'}</p>
+                              </div>
+                              <MessageCircle size={16} className="text-gray-500 shrink-0" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{member.name}</p>
-                              {member.roadName && (
-                                <p className="text-xs text-red-500 truncate">&quot;{member.roadName}&quot;</p>
-                              )}
-                              <p className="text-xs text-gray-500">{member.rank || 'Member'}</p>
-                            </div>
-                            <MessageCircle size={16} className="text-gray-500" />
-                          </div>
-                        </button>
-                      ))
+                          </button>
+                        )
+                      })
                     ) : (
-                      <p className="text-center p-4 text-gray-500">
-                        {searchQuery ? 'No members found' : 'No members available'}
-                      </p>
+                      <div className="text-center p-8 text-gray-500">
+                        <p className="mb-3">
+                          {searchQuery ? 'No members found' : 'No members available'}
+                        </p>
+                        {!searchQuery && (
+                          <Button type="button" variant="outline" onClick={fetchAllMembers}>
+                            Retry
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </>
                 )}
-              </ScrollArea>
+              </div>
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 flex flex-col">
+            <div
+              className={`flex-1 flex-col min-h-0 ${
+                showList ? 'hidden md:flex' : 'flex'
+              }`}
+            >
               {selectedPartner ? (
                 <>
-                  {/* Chat Header */}
-                  <div className="p-4 border-b border-zinc-800 flex items-center gap-3">
+                  <div className="p-4 border-b border-zinc-800 flex items-center gap-3 shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="md:hidden -ml-2"
+                      onClick={() => setSelectedPartner(null)}
+                    >
+                      <ArrowLeft size={16} />
+                    </Button>
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-sm overflow-hidden">
                       {selectedPartner.picture ? (
                         <img src={selectedPartner.picture} alt={selectedPartner.name} className="w-full h-full object-cover" />
@@ -1497,14 +1549,13 @@ function ChatTab({ token, profile }) {
                     </div>
                   </div>
 
-                  {/* Messages */}
-                  <ScrollArea className="flex-1 p-4">
+                  <div className="flex-1 min-h-0 overflow-y-auto p-4">
                     <div className="space-y-3">
                       {messages.map((msg) => {
-                        const isMe = msg.senderId === profile?.id
+                        const isMe = myIds.includes(msg.senderId)
                         return (
                           <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[70%] rounded-lg p-3 ${
+                            <div className={`max-w-[85%] md:max-w-[70%] rounded-lg p-3 ${
                               isMe ? 'bg-red-600 text-white' : 'bg-zinc-800 text-white'
                             }`}>
                               <p className="text-sm break-words">{msg.message}</p>
@@ -1517,10 +1568,9 @@ function ChatTab({ token, profile }) {
                       })}
                       <div ref={messagesEndRef} />
                     </div>
-                  </ScrollArea>
+                  </div>
 
-                  {/* Message Input */}
-                  <form onSubmit={handleSendMessage} className="p-4 border-t border-zinc-800">
+                  <form onSubmit={handleSendMessage} className="p-4 border-t border-zinc-800 shrink-0">
                     <div className="flex gap-2">
                       <Input
                         value={newMessage}
@@ -1536,7 +1586,7 @@ function ChatTab({ token, profile }) {
                   </form>
                 </>
               ) : (
-                <div className="flex-1 flex items-center justify-center text-gray-500">
+                <div className="flex-1 flex items-center justify-center text-gray-500 p-6">
                   <div className="text-center">
                     <MessageCircle size={48} className="mx-auto mb-3 opacity-50" />
                     <p>Select a conversation to start chatting</p>
