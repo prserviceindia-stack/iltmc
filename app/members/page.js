@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { 
-  User, Bike, MapPin, Shield, Award, Search, Filter, ArrowLeft, ExternalLink
+  User, Bike, MapPin, Shield, Award, Search, Filter, ArrowLeft, ExternalLink, Circle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -15,6 +15,7 @@ const LOGO_URL = 'https://customer-assets.emergentagent.com/job_9bab05d4-0d45-4f
 
 export default function MembersPage() {
   const [members, setMembers] = useState([])
+  const [onlineStatus, setOnlineStatus] = useState({})
   const [ranks, setRanks] = useState([])
   const [positions, setPositions] = useState([])
   const [chapters, setChapters] = useState([])
@@ -25,6 +26,8 @@ export default function MembersPage() {
 
   useEffect(() => {
     fetchData()
+    const interval = setInterval(fetchOnlineStatus, 10000) // Update online status every 10s
+    return () => clearInterval(interval)
   }, [])
 
   const fetchData = async () => {
@@ -42,10 +45,44 @@ export default function MembersPage() {
       setRanks(await ranksRes.json())
       setPositions(await positionsRes.json())
       setChapters(await chaptersRes.json())
+      
+      await fetchOnlineStatus()
     } catch (error) {
       console.error(error)
     }
     setLoading(false)
+  }
+
+  const fetchOnlineStatus = async () => {
+    try {
+      const res = await fetch('/api/members/online')
+      if (res.ok) {
+        const onlineMembers = await res.json()
+        const statusMap = {}
+        onlineMembers.forEach(m => {
+          statusMap[m.id] = {
+            isOnline: m.isOnline,
+            lastSeen: m.lastSeen
+          }
+        })
+        setOnlineStatus(statusMap)
+      }
+    } catch (error) {
+      console.error('Failed to fetch online status:', error)
+    }
+  }
+
+  const getLastSeenText = (lastSeen) => {
+    if (!lastSeen) return 'Never seen'
+    const diff = Date.now() - new Date(lastSeen).getTime()
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+    
+    if (minutes < 1) return 'Just now'
+    if (minutes < 60) return `${minutes}m ago`
+    if (hours < 24) return `${hours}h ago`
+    return `${days}d ago`
   }
 
   const filteredMembers = members.filter(member => {
@@ -189,7 +226,17 @@ export default function MembersPage() {
                 >
                   <a href={`/profile/${member.id}`}>
                     <Card className="bg-gradient-to-br from-red-950/50 to-zinc-900 border-red-900/50 hover:border-red-500 transition-all duration-300 overflow-hidden group">
-                      <CardContent className="p-6 text-center">
+                      <CardContent className="p-6 text-center relative">
+                        {/* Online Status Badge */}
+                        {onlineStatus[member.id]?.isOnline && (
+                          <div className="absolute top-2 right-2">
+                            <div className="flex items-center gap-1 bg-green-600 text-white text-xs px-2 py-1 rounded-full">
+                              <Circle size={6} fill="white" className="animate-pulse" />
+                              Online
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="w-20 h-20 mx-auto bg-gradient-to-br from-red-600 to-red-800 rounded-full flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">
                           {getPositionBadge(member.position) || member.name?.charAt(0)}
                         </div>
@@ -201,6 +248,11 @@ export default function MembersPage() {
                         <div className="mt-3 text-sm text-gray-400">
                           <p>{getRankBadge(member.rank)} {member.rank}</p>
                         </div>
+                        {!onlineStatus[member.id]?.isOnline && onlineStatus[member.id]?.lastSeen && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            {getLastSeenText(onlineStatus[member.id].lastSeen)}
+                          </p>
+                        )}
                         <ExternalLink className="mx-auto mt-3 text-gray-600 group-hover:text-red-500 transition-colors" size={16} />
                       </CardContent>
                     </Card>
@@ -236,7 +288,14 @@ export default function MembersPage() {
                 >
                   <a href={`/profile/${member.id}`}>
                     <Card className="bg-zinc-900/50 border-zinc-800 hover:border-red-500/50 transition-all duration-300 overflow-hidden group h-full">
-                      <CardContent className="p-4 text-center">
+                      <CardContent className="p-4 text-center relative">
+                        {/* Online Status Badge */}
+                        {onlineStatus[member.id]?.isOnline && (
+                          <div className="absolute top-2 right-2">
+                            <Circle size={8} fill="#22c55e" className="text-green-500" />
+                          </div>
+                        )}
+                        
                         <div className="w-16 h-16 mx-auto bg-gradient-to-br from-zinc-700 to-zinc-800 rounded-full flex items-center justify-center text-2xl mb-3 group-hover:from-red-700 group-hover:to-red-900 transition-all">
                           {getRankBadge(member.rank) || member.name?.charAt(0)}
                         </div>
@@ -262,6 +321,11 @@ export default function MembersPage() {
                         {member.chapter && (
                           <p className="text-xs text-gray-600 mt-1 flex items-center justify-center gap-1">
                             <MapPin size={10} /> {member.chapter}
+                          </p>
+                        )}
+                        {!onlineStatus[member.id]?.isOnline && onlineStatus[member.id]?.lastSeen && (
+                          <p className="text-xs text-gray-600 mt-1">
+                            {getLastSeenText(onlineStatus[member.id].lastSeen)}
                           </p>
                         )}
                       </CardContent>

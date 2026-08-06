@@ -51,6 +51,27 @@ async function sendEmailNotification(subject, htmlContent, toEmail = null) {
 // Captcha store (in-memory, with expiration)
 const captchaStore = new Map()
 
+// Online users store (in-memory)
+const onlineUsers = new Map() // memberId -> { lastSeen: Date, socketId: string }
+
+// Update user online status
+function updateOnlineStatus(memberId) {
+  onlineUsers.set(memberId, { lastSeen: new Date(), isOnline: true })
+}
+
+// Get online status for a user
+function getOnlineStatus(memberId) {
+  const status = onlineUsers.get(memberId)
+  if (!status) return { isOnline: false, lastSeen: null }
+  
+  // Consider user offline if last activity was more than 2 minutes ago
+  const now = new Date()
+  const diff = now - new Date(status.lastSeen)
+  const isOnline = diff < 2 * 60 * 1000 // 2 minutes
+  
+  return { isOnline, lastSeen: status.lastSeen }
+}
+
 // Generate math captcha
 function generateCaptcha() {
   const operations = ['+', '-', '*']
@@ -838,7 +859,7 @@ async function handleRoute(request, { params }) {
       }
 
       const body = await request.json()
-      const allowedFields = ['name', 'roadName', 'phone', 'bike', 'chapter']
+      const allowedFields = ['name', 'roadName', 'phone', 'bike', 'chapter', 'profilePicture', 'rankPointsLink', 'bio']
       const updateData = {}
       
       for (const field of allowedFields) {
@@ -852,8 +873,11 @@ async function handleRoute(request, { params }) {
         await db.collection('members').updateOne({ accountId: user.id }, { $set: updateData })
       }
 
+      // Update online status
+      updateOnlineStatus(user.id)
+
       const updatedProfile = await db.collection('members').findOne({ accountId: user.id })
-      const { _id, ...cleanedProfile } = updatedProfile
+      const { _id, aadhaarCard, drivingLicense, ...cleanedProfile } = updatedProfile
 
       return handleCORS(NextResponse.json({ message: 'Profile updated', profile: cleanedProfile }))
     }
@@ -1012,6 +1036,162 @@ async function handleRoute(request, { params }) {
 
       const cleanedUploads = uploads.map(({ _id, fileData, ...rest }) => rest) // Don't send file data back
       return handleCORS(NextResponse.json(cleanedUploads))
+    }
+
+    // ==================== CHAT & ONLINE STATUS ====================
+
+    // Heartbeat - update online status
+    if (route === '/member/heartbeat' && method === 'POST') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+      
+      updateOnlineStatus(user.id)
+      
+      // Also update lastSeen in database
+      await db.collection('members').updateOne(
+        { accountId: user.id },
+        { $set: { lastSeen: new Date(), isOnline: true } }
+      )
+      
+      return handleCORS(NextResponse.json({ status: 'ok' }))
+    }
+
+    // Get online members list
+    if (route === '/members/online' && method === 'GET') {
+      // Get all members with their online status
+      const members = await db.collection('members')
+        .find({ approvalStatus: 'approved' })
+        .project({ id: 1, name: 1, roadName: 1, lastSeen: 1, isOnline: 1, profilePicture: 1 })
+        .toArray()
+      
+      const membersWithStatus = members.map(m => {
+        const status = getOnlineStatus(m.id)
+        return {
+          id: m.id,
+          name: m.name,
+          roadName: m.roadName,
+          profilePicture: m.profilePicture,
+          isOnline: status.isOnline,
+          lastSeen: status.lastSeen || m.lastSeen
+        }
+      })
+      
+      return handleCORS(NextResponse.json(membersWithStatus))
+    }
+
+    // Get chat conversations list
+    if (route === '/chat/conversations' && method === 'GET') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      // Get unique conversations for this user
+      const messages = await db.collection('chat_messages')
+        .find({
+          $or: [
+            { senderId: user.id },
+            { receiverId: user.id }
+          ]
+        })
+        .sort({ createdAt: -1 })
+        .toArray()
+
+      // Group by conversation partner
+      const conversationsMap = new Map()
+      for (const msg of messages) {
+        const partnerId = msg.senderId === user.id ? msg.receiverId : msg.senderId
+        if (!conversationsMap.has(partnerId)) {
+          conversationsMap.set(partnerId, {
+            partnerId,
+            lastMessage: msg.message,
+            lastMessageTime: msg.createdAt,
+            unread: msg.receiverId === user.id && !msg.read ? 1 : 0
+          })
+        } else if (msg.receiverId === user.id && !msg.read) {
+          conversationsMap.get(partnerId).unread++
+        }
+      }
+
+      // Get partner details
+      const partnerIds = Array.from(conversationsMap.keys())
+      const partners = await db.collection('members')
+        .find({ $or: [{ id: { $in: partnerIds } }, { accountId: { $in: partnerIds } }] })
+        .toArray()
+
+      const conversations = Array.from(conversationsMap.values()).map(conv => {
+        const partner = partners.find(p => p.id === conv.partnerId || p.accountId === conv.partnerId)
+        const status = getOnlineStatus(conv.partnerId)
+        return {
+          ...conv,
+          partnerName: partner?.name || 'Unknown',
+          partnerRoadName: partner?.roadName,
+          partnerPicture: partner?.profilePicture,
+          isOnline: status.isOnline
+        }
+      })
+
+      return handleCORS(NextResponse.json(conversations))
+    }
+
+    // Get messages with a specific user
+    if (route.startsWith('/chat/messages/') && method === 'GET') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const partnerId = path[2]
+      
+      const messages = await db.collection('chat_messages')
+        .find({
+          $or: [
+            { senderId: user.id, receiverId: partnerId },
+            { senderId: partnerId, receiverId: user.id }
+          ]
+        })
+        .sort({ createdAt: 1 })
+        .limit(100)
+        .toArray()
+
+      // Mark messages as read
+      await db.collection('chat_messages').updateMany(
+        { senderId: partnerId, receiverId: user.id, read: false },
+        { $set: { read: true, readAt: new Date() } }
+      )
+
+      const cleanedMessages = messages.map(({ _id, ...rest }) => rest)
+      return handleCORS(NextResponse.json(cleanedMessages))
+    }
+
+    // Send a message
+    if (route === '/chat/send' && method === 'POST') {
+      const user = await authenticateRequest(request)
+      if (!user || user.role !== 'member') {
+        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+      }
+
+      const { receiverId, message } = await request.json()
+      
+      if (!receiverId || !message) {
+        return handleCORS(NextResponse.json({ error: 'Receiver and message required' }, { status: 400 }))
+      }
+
+      const chatMessage = {
+        id: uuidv4(),
+        senderId: user.id,
+        senderName: user.name,
+        receiverId,
+        message: message.trim(),
+        read: false,
+        createdAt: new Date()
+      }
+
+      await db.collection('chat_messages').insertOne(chatMessage)
+      
+      return handleCORS(NextResponse.json({ message: 'Sent', id: chatMessage.id }))
     }
 
     // Admin get all ride uploads

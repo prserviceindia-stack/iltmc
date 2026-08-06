@@ -5,7 +5,8 @@ import { motion } from 'framer-motion'
 import { 
   User, Mail, Phone, Bike, MapPin, Shield, Award, Calendar,
   LogOut, Upload, FileSpreadsheet, CheckCircle, XCircle, Clock,
-  TrendingUp, Eye, EyeOff, RefreshCw, Home, Settings, BarChart3, FileText, AlertCircle
+  TrendingUp, Eye, EyeOff, RefreshCw, Home, Settings, BarChart3, FileText, AlertCircle,
+  MessageCircle, Send, Camera, Link, ExternalLink, Circle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -14,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 
 const LOGO_URL = 'https://customer-assets.emergentagent.com/job_9bab05d4-0d45-4f8d-a396-cf0659408542/artifacts/lv5k959m_Ilt%20logo.png'
@@ -749,9 +751,10 @@ function DashboardTab({ profile, stats }) {
 // Profile Tab
 function ProfileTab({ token, profile, setProfile }) {
   const [formData, setFormData] = useState({
-    name: '', roadName: '', phone: '', bike: '', chapter: ''
+    name: '', roadName: '', phone: '', bike: '', chapter: '', profilePicture: '', rankPointsLink: ''
   })
   const [loading, setLoading] = useState(false)
+  const [uploadingPicture, setUploadingPicture] = useState(false)
   const [chapters, setChapters] = useState([])
 
   useEffect(() => {
@@ -761,7 +764,9 @@ function ProfileTab({ token, profile, setProfile }) {
         roadName: profile.roadName || '',
         phone: profile.phone || '',
         bike: profile.bike || '',
-        chapter: profile.chapter || ''
+        chapter: profile.chapter || '',
+        profilePicture: profile.profilePicture || '',
+        rankPointsLink: profile.rankPointsLink || ''
       })
     }
     fetchChapters()
@@ -774,6 +779,31 @@ function ProfileTab({ token, profile, setProfile }) {
     } catch (error) {
       console.error(error)
     }
+  }
+
+  const handleProfilePictureUpload = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size must be less than 2MB')
+      return
+    }
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a JPG, PNG, or WEBP image')
+      return
+    }
+
+    setUploadingPicture(true)
+    const reader = new FileReader()
+    reader.onload = () => {
+      setFormData({...formData, profilePicture: reader.result})
+      toast.success('Profile picture uploaded! Click Save to update.')
+      setUploadingPicture(false)
+    }
+    reader.readAsDataURL(file)
   }
 
   const handleSave = async (e) => {
@@ -808,6 +838,41 @@ function ProfileTab({ token, profile, setProfile }) {
       <Card className="bg-zinc-900/50 border-zinc-800">
         <CardContent className="p-6">
           <form onSubmit={handleSave} className="space-y-4">
+            {/* Profile Picture Upload */}
+            <div>
+              <Label className="flex items-center gap-2 mb-2">
+                <Camera size={16} className="text-red-500" />
+                Profile Picture
+              </Label>
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-2xl overflow-hidden">
+                  {formData.profilePicture ? (
+                    <img src={formData.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    profile?.name?.charAt(0) || '?'
+                  )}
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePictureUpload}
+                    className="hidden"
+                    id="profile-picture-upload"
+                    disabled={uploadingPicture}
+                  />
+                  <label
+                    htmlFor="profile-picture-upload"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-700 transition-colors"
+                  >
+                    <Upload size={16} />
+                    {uploadingPicture ? 'Uploading...' : 'Upload Photo'}
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">Max 2MB. JPG, PNG, or WEBP</p>
+                </div>
+              </div>
+            </div>
+
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <Label>Full Name</Label>
@@ -818,12 +883,15 @@ function ProfileTab({ token, profile, setProfile }) {
                 />
               </div>
               <div>
-                <Label>Road Name</Label>
+                <Label className="flex items-center gap-2">
+                  Road Name (Nickname)
+                  <Badge variant="outline" className="text-xs border-red-500 text-red-500">Public</Badge>
+                </Label>
                 <Input
                   value={formData.roadName}
                   onChange={(e) => setFormData({...formData, roadName: e.target.value})}
                   className="bg-zinc-800 border-zinc-700"
-                  placeholder="Your nickname"
+                  placeholder="Your biker nickname"
                 />
               </div>
             </div>
@@ -858,6 +926,23 @@ function ProfileTab({ token, profile, setProfile }) {
                   <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Rank Points Excel Link */}
+            <div>
+              <Label className="flex items-center gap-2">
+                <Link size={16} className="text-green-500" />
+                Rank Points Excel Sheet Link
+              </Label>
+              <Input
+                value={formData.rankPointsLink}
+                onChange={(e) => setFormData({...formData, rankPointsLink: e.target.value})}
+                className="bg-zinc-800 border-zinc-700"
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Add a link to your rank points Excel sheet (Google Sheets, Excel Online, etc.)
+              </p>
             </div>
 
             <div className="pt-4 border-t border-zinc-800">
@@ -1119,6 +1204,230 @@ function RideUploadTab({ token }) {
   )
 }
 
+// Chat Tab
+function ChatTab({ token, profile }) {
+  const [conversations, setConversations] = useState([])
+  const [selectedPartner, setSelectedPartner] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [newMessage, setNewMessage] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const messagesEndRef = useRef(null)
+
+  useEffect(() => {
+    fetchConversations()
+    const interval = setInterval(fetchConversations, 5000) // Refresh every 5s
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    if (selectedPartner) {
+      fetchMessages(selectedPartner.id)
+      const interval = setInterval(() => fetchMessages(selectedPartner.id), 3000)
+      return () => clearInterval(interval)
+    }
+  }, [selectedPartner])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const fetchConversations = async () => {
+    try {
+      const res = await fetch('/api/chat/conversations', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) {
+        setConversations(await res.json())
+      }
+    } catch (error) {
+      console.error(error)
+    }
+    setLoading(false)
+  }
+
+  const fetchMessages = async (partnerId) => {
+    try {
+      const res = await fetch(`/api/chat/messages/${partnerId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) {
+        setMessages(await res.json())
+      }
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault()
+    if (!newMessage.trim() || !selectedPartner) return
+
+    setSending(true)
+    try {
+      const res = await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          receiverId: selectedPartner.id,
+          message: newMessage.trim()
+        })
+      })
+      if (res.ok) {
+        setNewMessage('')
+        await fetchMessages(selectedPartner.id)
+        await fetchConversations()
+      } else {
+        toast.error('Failed to send message')
+      }
+    } catch (error) {
+      toast.error('Failed to send message')
+    }
+    setSending(false)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>
+          <MessageCircle className="inline text-red-500 mr-2" size={32} />
+          Member Chat
+        </h1>
+        <p className="text-gray-400">Connect with fellow club members</p>
+      </div>
+
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardContent className="p-0">
+          <div className="flex h-[600px]">
+            {/* Conversations List */}
+            <div className="w-1/3 border-r border-zinc-800">
+              <div className="p-4 border-b border-zinc-800">
+                <h3 className="font-medium">Conversations</h3>
+              </div>
+              <ScrollArea className="h-[540px]">
+                {loading ? (
+                  <p className="text-center p-4 text-gray-500">Loading...</p>
+                ) : conversations.length > 0 ? (
+                  conversations.map((conv) => (
+                    <button
+                      key={conv.partnerId}
+                      onClick={() => setSelectedPartner({
+                        id: conv.partnerId,
+                        name: conv.partnerName,
+                        roadName: conv.partnerRoadName,
+                        picture: conv.partnerPicture
+                      })}
+                      className={`w-full p-4 border-b border-zinc-800 hover:bg-zinc-800/50 text-left transition-colors ${
+                        selectedPartner?.id === conv.partnerId ? 'bg-zinc-800/50' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+                          {conv.partnerPicture ? (
+                            <img src={conv.partnerPicture} alt={conv.partnerName} className="w-full h-full object-cover" />
+                          ) : (
+                            conv.partnerName?.charAt(0) || '?'
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium truncate">{conv.partnerName}</p>
+                            {conv.unreadCount > 0 && (
+                              <Badge className="bg-red-600 text-xs">{conv.unreadCount}</Badge>
+                            )}
+                          </div>
+                          {conv.partnerRoadName && (
+                            <p className="text-xs text-red-500 truncate">&quot;{conv.partnerRoadName}&quot;</p>
+                          )}
+                          <p className="text-xs text-gray-500 truncate">{conv.lastMessage}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-center p-4 text-gray-500">No conversations yet</p>
+                )}
+              </ScrollArea>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 flex flex-col">
+              {selectedPartner ? (
+                <>
+                  {/* Chat Header */}
+                  <div className="p-4 border-b border-zinc-800 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-sm overflow-hidden">
+                      {selectedPartner.picture ? (
+                        <img src={selectedPartner.picture} alt={selectedPartner.name} className="w-full h-full object-cover" />
+                      ) : (
+                        selectedPartner.name?.charAt(0) || '?'
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium">{selectedPartner.name}</p>
+                      {selectedPartner.roadName && (
+                        <p className="text-xs text-red-500">&quot;{selectedPartner.roadName}&quot;</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Messages */}
+                  <ScrollArea className="flex-1 p-4">
+                    <div className="space-y-3">
+                      {messages.map((msg) => {
+                        const isMe = msg.senderId === profile?.id
+                        return (
+                          <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[70%] rounded-lg p-3 ${
+                              isMe ? 'bg-red-600 text-white' : 'bg-zinc-800 text-white'
+                            }`}>
+                              <p className="text-sm break-words">{msg.message}</p>
+                              <p className="text-xs mt-1 opacity-70">
+                                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                      <div ref={messagesEndRef} />
+                    </div>
+                  </ScrollArea>
+
+                  {/* Message Input */}
+                  <form onSubmit={handleSendMessage} className="p-4 border-t border-zinc-800">
+                    <div className="flex gap-2">
+                      <Input
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Type a message..."
+                        className="bg-zinc-800 border-zinc-700"
+                        disabled={sending}
+                      />
+                      <Button type="submit" className="bg-red-600 hover:bg-red-700" disabled={sending || !newMessage.trim()}>
+                        <Send size={16} />
+                      </Button>
+                    </div>
+                  </form>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-gray-500">
+                  <div className="text-center">
+                    <MessageCircle size={48} className="mx-auto mb-3 opacity-50" />
+                    <p>Select a conversation to start chatting</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // Password Tab
 function PasswordTab({ token }) {
   const [passwords, setPasswords] = useState({
@@ -1297,6 +1606,26 @@ export default function MemberPortal() {
     fetchProfile()
   }
 
+  // Heartbeat to update online status - must be before early returns
+  useEffect(() => {
+    if (token && profile) {
+      const sendHeartbeat = async () => {
+        try {
+          await fetch('/api/member/heartbeat', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        } catch (error) {
+          console.error('Heartbeat failed:', error)
+        }
+      }
+      
+      sendHeartbeat() // Send immediately
+      const interval = setInterval(sendHeartbeat, 30000) // Every 30 seconds
+      return () => clearInterval(interval)
+    }
+  }, [token, profile])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -1350,6 +1679,7 @@ export default function MemberPortal() {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'chat', label: 'Chat', icon: MessageCircle },
     { id: 'attendance', label: 'Attendance', icon: Calendar },
     { id: 'upload', label: 'Rank Points', icon: Upload },
     { id: 'password', label: 'Password', icon: Settings },
@@ -1406,6 +1736,7 @@ export default function MemberPortal() {
         {/* Content */}
         {activeTab === 'dashboard' && <DashboardTab profile={profile} stats={stats} />}
         {activeTab === 'profile' && <ProfileTab token={token} profile={profile} setProfile={setProfile} />}
+        {activeTab === 'chat' && <ChatTab token={token} profile={profile} />}
         {activeTab === 'attendance' && <AttendanceTab token={token} />}
         {activeTab === 'upload' && <RideUploadTab token={token} />}
         {activeTab === 'password' && <PasswordTab token={token} />}

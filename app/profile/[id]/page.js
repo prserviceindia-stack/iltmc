@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   User, Mail, Phone, Bike, MapPin, Shield, Award, Calendar,
-  TrendingUp, FileSpreadsheet, ArrowLeft, CheckCircle
+  TrendingUp, FileSpreadsheet, ArrowLeft, CheckCircle, ExternalLink
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -97,8 +97,12 @@ export default function MemberProfilePage() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <div className="w-32 h-32 mx-auto bg-gradient-to-br from-red-600 to-red-800 rounded-full flex items-center justify-center text-5xl mb-4">
-            {member.name?.charAt(0) || '?'}
+          <div className="w-32 h-32 mx-auto bg-gradient-to-br from-red-600 to-red-800 rounded-full flex items-center justify-center text-5xl mb-4 overflow-hidden">
+            {member.profilePicture ? (
+              <img src={member.profilePicture} alt={member.name} className="w-full h-full object-cover" />
+            ) : (
+              member.name?.charAt(0) || '?'
+            )}
           </div>
           <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>
             {member.name}
@@ -185,7 +189,7 @@ export default function MemberProfilePage() {
 
         {/* Rank Points Uploads */}
         {member.rankUploads && member.rankUploads.length > 0 && (
-          <Card className="bg-zinc-900/50 border-zinc-800">
+          <Card className="bg-zinc-900/50 border-zinc-800 mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileSpreadsheet className="text-green-500" size={20} />
@@ -211,6 +215,45 @@ export default function MemberProfilePage() {
                     </Badge>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Rank Points Live Sheet */}
+        {member.rankPointsLink && (
+          <Card className="bg-zinc-900/50 border-zinc-800 mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSpreadsheet className="text-blue-500" size={20} />
+                Live Rank Points Sheet
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <a 
+                  href={member.rankPointsLink} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  <ExternalLink size={16} />
+                  Open Full Sheet in New Tab
+                </a>
+                
+                {/* Mobile-Friendly Iframe */}
+                <div className="w-full h-[600px] border border-zinc-700 rounded-lg overflow-hidden bg-white">
+                  <iframe
+                    src={member.rankPointsLink}
+                    className="w-full h-full"
+                    title="Rank Points Sheet"
+                    style={{ border: 'none' }}
+                    allowFullScreen
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  💡 Tip: For best viewing on mobile, tap the link above to open the sheet in a new tab
+                </p>
               </div>
             </CardContent>
           </Card>
