@@ -1207,15 +1207,19 @@ function RideUploadTab({ token }) {
 // Chat Tab
 function ChatTab({ token, profile }) {
   const [conversations, setConversations] = useState([])
+  const [allMembers, setAllMembers] = useState([])
   const [selectedPartner, setSelectedPartner] = useState(null)
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [viewMode, setViewMode] = useState('conversations') // 'conversations' or 'members'
+  const [searchQuery, setSearchQuery] = useState('')
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
     fetchConversations()
+    fetchAllMembers()
     const interval = setInterval(fetchConversations, 5000) // Refresh every 5s
     return () => clearInterval(interval)
   }, [])
@@ -1244,6 +1248,22 @@ function ChatTab({ token, profile }) {
       console.error(error)
     }
     setLoading(false)
+  }
+
+  const fetchAllMembers = async () => {
+    try {
+      const res = await fetch('/api/members/public')
+      if (res.ok) {
+        const members = await res.json()
+        // Filter out current user and only approved members
+        setAllMembers(members.filter(m => 
+          m.id !== profile?.id && 
+          (m.approvalStatus === 'approved' || !m.approvalStatus)
+        ))
+      }
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   const fetchMessages = async (partnerId) => {
@@ -1289,6 +1309,11 @@ function ChatTab({ token, profile }) {
     setSending(false)
   }
 
+  const filteredMembers = allMembers.filter(member =>
+    member.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    member.roadName?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   return (
     <div className="space-y-6">
       <div>
@@ -1302,16 +1327,55 @@ function ChatTab({ token, profile }) {
       <Card className="bg-zinc-900/50 border-zinc-800">
         <CardContent className="p-0">
           <div className="flex h-[600px]">
-            {/* Conversations List */}
-            <div className="w-1/3 border-r border-zinc-800">
-              <div className="p-4 border-b border-zinc-800">
-                <h3 className="font-medium">Conversations</h3>
+            {/* Sidebar - Conversations or Members List */}
+            <div className="w-1/3 border-r border-zinc-800 flex flex-col">
+              {/* Toggle Tabs */}
+              <div className="p-2 border-b border-zinc-800 flex gap-2">
+                <button
+                  onClick={() => setViewMode('conversations')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    viewMode === 'conversations'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+                  }`}
+                >
+                  Conversations
+                  {conversations.length > 0 && (
+                    <Badge className="ml-2 bg-zinc-900">{conversations.length}</Badge>
+                  )}
+                </button>
+                <button
+                  onClick={() => setViewMode('members')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    viewMode === 'members'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+                  }`}
+                >
+                  All Members
+                </button>
               </div>
-              <ScrollArea className="h-[540px]">
-                {loading ? (
-                  <p className="text-center p-4 text-gray-500">Loading...</p>
-                ) : conversations.length > 0 ? (
-                  conversations.map((conv) => (
+
+              {/* Search Bar (only for members view) */}
+              {viewMode === 'members' && (
+                <div className="p-3 border-b border-zinc-800">
+                  <Input
+                    placeholder="Search members..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-zinc-800 border-zinc-700 text-sm"
+                  />
+                </div>
+              )}
+
+              <ScrollArea className="flex-1">
+                {/* Conversations View */}
+                {viewMode === 'conversations' && (
+                  <>
+                    {loading ? (
+                      <p className="text-center p-4 text-gray-500">Loading...</p>
+                    ) : conversations.length > 0 ? (
+                      conversations.map((conv) => (
                     <button
                       key={conv.partnerId}
                       onClick={() => setSelectedPartner({
@@ -1348,7 +1412,58 @@ function ChatTab({ token, profile }) {
                     </button>
                   ))
                 ) : (
-                  <p className="text-center p-4 text-gray-500">No conversations yet</p>
+                  <div className="text-center p-8 text-gray-500">
+                    <MessageCircle size={48} className="mx-auto mb-3 opacity-30" />
+                    <p className="mb-2">No conversations yet</p>
+                    <p className="text-sm text-gray-600">Click &quot;All Members&quot; to start chatting</p>
+                  </div>
+                )}
+                  </>
+                )}
+
+                {/* All Members View */}
+                {viewMode === 'members' && (
+                  <>
+                    {filteredMembers.length > 0 ? (
+                      filteredMembers.map((member) => (
+                        <button
+                          key={member.id}
+                          onClick={() => {
+                            setSelectedPartner({
+                              id: member.id,
+                              name: member.name,
+                              roadName: member.roadName,
+                              picture: member.profilePicture
+                            })
+                            setViewMode('conversations')
+                          }}
+                          className="w-full p-4 border-b border-zinc-800 hover:bg-zinc-800/50 text-left transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+                              {member.profilePicture ? (
+                                <img src={member.profilePicture} alt={member.name} className="w-full h-full object-cover" />
+                              ) : (
+                                member.name?.charAt(0) || '?'
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{member.name}</p>
+                              {member.roadName && (
+                                <p className="text-xs text-red-500 truncate">&quot;{member.roadName}&quot;</p>
+                              )}
+                              <p className="text-xs text-gray-500">{member.rank || 'Member'}</p>
+                            </div>
+                            <MessageCircle size={16} className="text-gray-500" />
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-center p-4 text-gray-500">
+                        {searchQuery ? 'No members found' : 'No members available'}
+                      </p>
+                    )}
+                  </>
                 )}
               </ScrollArea>
             </div>
