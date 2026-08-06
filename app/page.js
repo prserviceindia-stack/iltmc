@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Menu, X, ChevronDown, Users, MapPin, Calendar, Trophy, 
   Bike, Shield, Star, ArrowRight, Mail, Phone, Send,
-  Instagram, Facebook, Youtube, Clock, Compass, Upload, FileText, CheckCircle, Link
+  Instagram, Facebook, Youtube, Clock, Compass, Upload, FileText, CheckCircle, Link, User
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -35,7 +35,7 @@ function Navbar({ content }) {
   const navItems = [
     { label: 'Home', href: '#home' },
     { label: 'About', href: '#about' },
-    { label: 'Members', href: '#members' },
+    { label: 'Members', href: '/members' },
     { label: 'Rides', href: '#rides' },
     { label: 'Events', href: '#events' },
     { label: 'Gallery', href: '#gallery' },
@@ -844,72 +844,8 @@ function GallerySection() {
 }
 
 // Join Section
+// Join CTA Section (Simple - redirects to signup)
 function JoinSection() {
-  const [formData, setFormData] = useState({
-    name: '', email: '', phone: '', bike: '', experience: '', reason: '',
-    aadhaarCard: '', aadhaarFileName: '', drivingLicense: '', drivingLicenseFileName: ''
-  })
-  const [loading, setLoading] = useState(false)
-
-  const handleFileUpload = (e, field) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB')
-      return
-    }
-
-    // Check file type
-    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
-    if (!validTypes.includes(file.type)) {
-      toast.error('Please upload a JPG, PNG, or PDF file')
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1]
-      setFormData({
-        ...formData,
-        [field]: base64,
-        [field + 'FileName']: file.name
-      })
-      toast.success(`${field === 'aadhaarCard' ? 'Aadhaar Card' : 'Driving License'} uploaded`)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    
-    // Validate documents
-    if (!formData.aadhaarCard || !formData.drivingLicense) {
-      toast.error('Please upload both Aadhaar Card and Driving License')
-      return
-    }
-
-    setLoading(true)
-    try {
-      const res = await fetch('/api/applications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
-      if (res.ok) {
-        toast.success('Application submitted successfully! We will contact you soon.')
-        setFormData({ name: '', email: '', phone: '', bike: '', experience: '', reason: '', aadhaarCard: '', aadhaarFileName: '', drivingLicense: '', drivingLicenseFileName: '' })
-      } else {
-        const data = await res.json()
-        toast.error(data.error || 'Failed to submit application')
-      }
-    } catch (error) {
-      toast.error('Something went wrong')
-    }
-    setLoading(false)
-  }
-
   return (
     <section id="join" className="py-24 bg-gradient-to-b from-black via-red-950/20 to-black">
       <div className="container mx-auto px-4">
@@ -917,174 +853,59 @@ function JoinSection() {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-16"
+          className="text-center"
         >
           <Badge variant="outline" className="mb-4 border-red-500 text-red-500">BECOME A LION</Badge>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: 'Oswald, sans-serif' }}>
-            JOIN <span className="text-red-500">ILTMC</span>
+          <h2 className="text-4xl md:text-6xl font-bold mb-6" style={{ fontFamily: 'Oswald, sans-serif' }}>
+            JOIN <span className="text-red-500">THE PRIDE</span>
           </h2>
-          <p className="text-gray-400 max-w-2xl mx-auto">
-            Ready to be part of the brotherhood? Fill out the application below.
+          <p className="text-gray-400 max-w-2xl mx-auto text-lg mb-8">
+            Ready to be part of the Intrepidus Leones brotherhood? 
+            Sign up now and complete your membership application.
           </p>
-        </motion.div>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <a href="/member">
+              <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white px-10 py-6 text-xl glow-red">
+                JOIN NOW <ArrowRight className="ml-2" />
+              </Button>
+            </a>
+            <a href="/members">
+              <Button size="lg" variant="outline" className="border-white/30 hover:bg-white/10 px-8 py-6 text-lg">
+                VIEW MEMBERS
+              </Button>
+            </a>
+          </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="max-w-2xl mx-auto"
-        >
-          <Card className="bg-zinc-900/50 border-zinc-800">
-            <CardContent className="p-8">
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-400 mb-2 block">Full Name *</label>
-                    <Input
-                      placeholder="Your name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      required
-                      className="bg-zinc-800 border-zinc-700"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-400 mb-2 block">Email *</label>
-                    <Input
-                      type="email"
-                      placeholder="your@email.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      required
-                      className="bg-zinc-800 border-zinc-700"
-                    />
-                  </div>
+          <div className="mt-12 grid md:grid-cols-3 gap-6 max-w-3xl mx-auto">
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardContent className="p-6 text-center">
+                <div className="w-12 h-12 mx-auto bg-red-600/20 rounded-full flex items-center justify-center mb-3">
+                  <User className="text-red-500" size={24} />
                 </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-400 mb-2 block">Phone *</label>
-                    <Input
-                      placeholder="+91 xxxxxxxxxx"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      required
-                      className="bg-zinc-800 border-zinc-700"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-400 mb-2 block">Your Bike *</label>
-                    <Input
-                      placeholder="e.g., Royal Enfield Classic 350"
-                      value={formData.bike}
-                      onChange={(e) => setFormData({...formData, bike: e.target.value})}
-                      required
-                      className="bg-zinc-800 border-zinc-700"
-                    />
-                  </div>
+                <h3 className="font-bold mb-2">Step 1: Sign Up</h3>
+                <p className="text-gray-400 text-sm">Create your account with email and password</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardContent className="p-6 text-center">
+                <div className="w-12 h-12 mx-auto bg-red-600/20 rounded-full flex items-center justify-center mb-3">
+                  <FileText className="text-red-500" size={24} />
                 </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-2 block">Riding Experience *</label>
-                  <Input
-                    placeholder="e.g., 5 years of riding"
-                    value={formData.experience}
-                    onChange={(e) => setFormData({...formData, experience: e.target.value})}
-                    required
-                    className="bg-zinc-800 border-zinc-700"
-                  />
+                <h3 className="font-bold mb-2">Step 2: Complete Form</h3>
+                <p className="text-gray-400 text-sm">Fill joining form with documents (Aadhaar & DL)</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardContent className="p-6 text-center">
+                <div className="w-12 h-12 mx-auto bg-red-600/20 rounded-full flex items-center justify-center mb-3">
+                  <Shield className="text-red-500" size={24} />
                 </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-2 block">Why do you want to join ILTMC? *</label>
-                  <Textarea
-                    placeholder="Tell us about yourself and your passion for riding..."
-                    value={formData.reason}
-                    onChange={(e) => setFormData({...formData, reason: e.target.value})}
-                    required
-                    rows={4}
-                    className="bg-zinc-800 border-zinc-700"
-                  />
-                </div>
-
-                {/* Document Uploads */}
-                <div className="border-t border-zinc-800 pt-6">
-                  <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                    <FileText className="text-red-500" size={20} />
-                    Required Documents (Self-Attested)
-                  </h3>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm text-gray-400 mb-2 block">Aadhaar Card *</label>
-                      <div className="relative">
-                        <input
-                          type="file"
-                          accept=".jpg,.jpeg,.png,.pdf"
-                          onChange={(e) => handleFileUpload(e, 'aadhaarCard')}
-                          className="hidden"
-                          id="aadhaar-upload"
-                        />
-                        <label
-                          htmlFor="aadhaar-upload"
-                          className={`flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
-                            formData.aadhaarCard 
-                              ? 'border-green-500 bg-green-500/10' 
-                              : 'border-zinc-700 hover:border-red-500'
-                          }`}
-                        >
-                          {formData.aadhaarCard ? (
-                            <>
-                              <CheckCircle className="text-green-500" size={20} />
-                              <span className="text-sm text-green-500">{formData.aadhaarFileName || 'Uploaded'}</span>
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="text-gray-400" size={20} />
-                              <span className="text-sm text-gray-400">Upload Aadhaar</span>
-                            </>
-                          )}
-                        </label>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-400 mb-2 block">Driving License *</label>
-                      <div className="relative">
-                        <input
-                          type="file"
-                          accept=".jpg,.jpeg,.png,.pdf"
-                          onChange={(e) => handleFileUpload(e, 'drivingLicense')}
-                          className="hidden"
-                          id="dl-upload"
-                        />
-                        <label
-                          htmlFor="dl-upload"
-                          className={`flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
-                            formData.drivingLicense 
-                              ? 'border-green-500 bg-green-500/10' 
-                              : 'border-zinc-700 hover:border-red-500'
-                          }`}
-                        >
-                          {formData.drivingLicense ? (
-                            <>
-                              <CheckCircle className="text-green-500" size={20} />
-                              <span className="text-sm text-green-500">{formData.drivingLicenseFileName || 'Uploaded'}</span>
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="text-gray-400" size={20} />
-                              <span className="text-sm text-gray-400">Upload DL</span>
-                            </>
-                          )}
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">Max 5MB each. Accepted: JPG, PNG, PDF</p>
-                </div>
-
-                <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 py-6 text-lg" disabled={loading}>
-                  {loading ? 'Submitting...' : 'SUBMIT APPLICATION'}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                <h3 className="font-bold mb-2">Step 3: Get Approved</h3>
+                <p className="text-gray-400 text-sm">Admin reviews and approves your membership</p>
+              </CardContent>
+            </Card>
+          </div>
         </motion.div>
       </div>
     </section>
