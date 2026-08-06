@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 const LOGO_URL = 'https://customer-assets.emergentagent.com/job_9bab05d4-0d45-4f8d-a396-cf0659408542/artifacts/lv5k959m_Ilt%20logo.png'
 
@@ -996,7 +997,7 @@ function AttendanceTab({ token }) {
     setLoading(false)
   }
 
-  if (loading) return <div className="text-center py-8">Loading...</div>
+  if (loading) return <LoadingSpinner label="Loading attendance..." />
 
   return (
     <div className="space-y-6">
@@ -1168,7 +1169,7 @@ function RideUploadTab({ token }) {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-center py-4">Loading...</p>
+            <LoadingSpinner label="Loading uploads..." />
           ) : uploads.length > 0 ? (
             <div className="space-y-3">
               {uploads.map((upload) => (
@@ -1212,6 +1213,7 @@ function ChatTab({ token, profile }) {
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
+  const [membersLoading, setMembersLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [viewMode, setViewMode] = useState('conversations') // 'conversations' or 'members'
   const [searchQuery, setSearchQuery] = useState('')
@@ -1251,19 +1253,24 @@ function ChatTab({ token, profile }) {
   }
 
   const fetchAllMembers = async () => {
+    setMembersLoading(true)
     try {
       const res = await fetch('/api/members/public')
       if (res.ok) {
         const members = await res.json()
         // Filter out current user and only approved members
         setAllMembers(members.filter(m => 
-          m.id !== profile?.id && 
+          m.id !== profile?.id &&
+          m.accountId !== profile?.id &&
+          m.id !== profile?.accountId &&
+          m.accountId !== profile?.accountId &&
           (m.approvalStatus === 'approved' || !m.approvalStatus)
         ))
       }
     } catch (error) {
       console.error(error)
     }
+    setMembersLoading(false)
   }
 
   const fetchMessages = async (partnerId) => {
@@ -1355,7 +1362,6 @@ function ChatTab({ token, profile }) {
                   All Members
                 </button>
               </div>
-
               {/* Search Bar (only for members view) */}
               {viewMode === 'members' && (
                 <div className="p-3 border-b border-zinc-800">
@@ -1373,7 +1379,7 @@ function ChatTab({ token, profile }) {
                 {viewMode === 'conversations' && (
                   <>
                     {loading ? (
-                      <p className="text-center p-4 text-gray-500">Loading...</p>
+                      <LoadingSpinner label="Loading chat..." />
                     ) : conversations.length > 0 ? (
                       conversations.map((conv) => (
                     <button
@@ -1424,7 +1430,9 @@ function ChatTab({ token, profile }) {
                 {/* All Members View */}
                 {viewMode === 'members' && (
                   <>
-                    {filteredMembers.length > 0 ? (
+                    {membersLoading ? (
+                      <LoadingSpinner label="Loading members..." />
+                    ) : filteredMembers.length > 0 ? (
                       filteredMembers.map((member) => (
                         <button
                           key={member.id}
@@ -1433,7 +1441,7 @@ function ChatTab({ token, profile }) {
                               id: member.id,
                               name: member.name,
                               roadName: member.roadName,
-                              picture: member.profilePicture
+                              picture: member.photoUrl || member.profilePicture
                             })
                             setViewMode('conversations')
                           }}
@@ -1441,8 +1449,8 @@ function ChatTab({ token, profile }) {
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
-                              {member.profilePicture ? (
-                                <img src={member.profilePicture} alt={member.name} className="w-full h-full object-cover" />
+                              {(member.photoUrl || member.profilePicture) ? (
+                                <img src={member.photoUrl || member.profilePicture} alt={member.name} className="w-full h-full object-cover" />
                               ) : (
                                 member.name?.charAt(0) || '?'
                               )}
@@ -1744,10 +1752,7 @@ export default function MemberPortal() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <img src={LOGO_URL} alt="ILTMC" className="w-20 h-20 mx-auto animate-pulse" />
-          <p className="mt-4 text-gray-400">Loading...</p>
-        </div>
+        <LoadingSpinner label="Loading portal..." fullHeight />
       </div>
     )
   }

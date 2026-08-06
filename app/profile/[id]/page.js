@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 const LOGO_URL = 'https://customer-assets.emergentagent.com/job_9bab05d4-0d45-4f8d-a396-cf0659408542/artifacts/lv5k959m_Ilt%20logo.png'
 
@@ -43,10 +44,7 @@ export default function MemberProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <img src={LOGO_URL} alt="ILTMC" className="w-20 h-20 mx-auto animate-pulse" />
-          <p className="mt-4 text-gray-400">Loading profile...</p>
-        </div>
+        <LoadingSpinner label="Loading profile..." fullHeight />
       </div>
     )
   }
@@ -98,8 +96,8 @@ export default function MemberProfilePage() {
           className="text-center mb-8"
         >
           <div className="w-32 h-32 mx-auto bg-gradient-to-br from-red-600 to-red-800 rounded-full flex items-center justify-center text-5xl mb-4 overflow-hidden">
-            {member.profilePicture ? (
-              <img src={member.profilePicture} alt={member.name} className="w-full h-full object-cover" />
+            {member.photoUrl || member.profilePicture ? (
+              <img src={member.photoUrl || member.profilePicture} alt={member.name} className="w-full h-full object-cover" />
             ) : (
               member.name?.charAt(0) || '?'
             )}
