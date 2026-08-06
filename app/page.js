@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Menu, X, ChevronDown, Users, MapPin, Calendar, Trophy, 
   Bike, Shield, Star, ArrowRight, Mail, Phone, Send,
-  Instagram, Facebook, Youtube, Clock, Compass
+  Instagram, Facebook, Youtube, Clock, Compass, Upload, FileText, CheckCircle, Link
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 
 const LOGO_URL = 'https://customer-assets.emergentagent.com/job_9bab05d4-0d45-4f8d-a396-cf0659408542/artifacts/lv5k959m_Ilt%20logo.png'
@@ -439,11 +440,47 @@ function MembersSection({ members, ranks, positions }) {
 
 // Rides Section
 function RidesSection({ rides }) {
+  const [showRsvpDialog, setShowRsvpDialog] = useState(false)
+  const [selectedRide, setSelectedRide] = useState(null)
+  const [rsvpForm, setRsvpForm] = useState({ name: '', email: '', phone: '', message: '' })
+  const [loading, setLoading] = useState(false)
+
   const displayRides = rides?.length > 0 ? rides : [
     { id: '1', title: 'Northeast Expedition', description: 'Epic ride through the seven sisters', date: new Date('2025-07-15'), distance: 850, difficulty: 'Hard', startPoint: 'Agartala', endPoint: 'Shillong', captain: 'Thunder' },
     { id: '2', title: 'Tripura Heritage Ride', description: 'Exploring ancient temples and palaces', date: new Date('2025-06-20'), distance: 280, difficulty: 'Medium', startPoint: 'Agartala', endPoint: 'Udaipur', captain: 'Storm' },
     { id: '3', title: 'Dawn Patrol', description: 'Weekly sunrise ride', date: new Date('2025-06-08'), distance: 120, difficulty: 'Easy', startPoint: 'Agartala', endPoint: 'Ambassa', captain: 'Rider' },
   ]
+
+  const openRsvp = (ride) => {
+    setSelectedRide(ride)
+    setShowRsvpDialog(true)
+  }
+
+  const handleRsvpSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const res = await fetch('/api/rsvp/ride', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...rsvpForm,
+          rideId: selectedRide.id,
+          rideName: selectedRide.title
+        })
+      })
+      if (res.ok) {
+        toast.success('RSVP submitted! We will contact you with details.')
+        setShowRsvpDialog(false)
+        setRsvpForm({ name: '', email: '', phone: '', message: '' })
+      } else {
+        toast.error('Failed to submit RSVP')
+      }
+    } catch (error) {
+      toast.error('Something went wrong')
+    }
+    setLoading(false)
+  }
 
   return (
     <section id="rides" className="py-24 bg-gradient-to-b from-black via-zinc-950 to-black relative overflow-hidden">
@@ -476,7 +513,12 @@ function RidesSection({ rides }) {
               viewport={{ once: true }}
               transition={{ delay: index * 0.1 }}
             >
-              <Card className="bg-zinc-900/80 border-zinc-800 hover:border-red-500/50 transition-all duration-300 h-full">
+              <Card className="bg-zinc-900/80 border-zinc-800 hover:border-red-500/50 transition-all duration-300 h-full overflow-hidden">
+                {ride.imageUrl && (
+                  <div className="h-40 bg-zinc-800">
+                    <img src={ride.imageUrl} alt={ride.title} className="w-full h-full object-cover" />
+                  </div>
+                )}
                 <CardHeader>
                   <div className="flex justify-between items-start mb-2">
                     <Badge className={
@@ -507,7 +549,7 @@ function RidesSection({ rides }) {
                       <span>Road Captain: {ride.captain}</span>
                     </div>
                   </div>
-                  <Button className="w-full mt-4 bg-red-600 hover:bg-red-700">
+                  <Button className="w-full mt-4 bg-red-600 hover:bg-red-700" onClick={() => openRsvp(ride)}>
                     RSVP Now
                   </Button>
                 </CardContent>
@@ -516,17 +558,107 @@ function RidesSection({ rides }) {
           ))}
         </div>
       </div>
+
+      {/* RSVP Dialog */}
+      <Dialog open={showRsvpDialog} onOpenChange={setShowRsvpDialog}>
+        <DialogContent className="bg-zinc-900 border-zinc-800">
+          <DialogHeader>
+            <DialogTitle>RSVP for {selectedRide?.title}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleRsvpSubmit} className="space-y-4 py-4">
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">Name *</label>
+              <Input
+                value={rsvpForm.name}
+                onChange={(e) => setRsvpForm({...rsvpForm, name: e.target.value})}
+                required
+                className="bg-zinc-800 border-zinc-700"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">Email *</label>
+              <Input
+                type="email"
+                value={rsvpForm.email}
+                onChange={(e) => setRsvpForm({...rsvpForm, email: e.target.value})}
+                required
+                className="bg-zinc-800 border-zinc-700"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">Phone *</label>
+              <Input
+                value={rsvpForm.phone}
+                onChange={(e) => setRsvpForm({...rsvpForm, phone: e.target.value})}
+                required
+                className="bg-zinc-800 border-zinc-700"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">Message (optional)</label>
+              <Textarea
+                value={rsvpForm.message}
+                onChange={(e) => setRsvpForm({...rsvpForm, message: e.target.value})}
+                className="bg-zinc-800 border-zinc-700"
+                placeholder="Any questions or special requirements?"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowRsvpDialog(false)}>Cancel</Button>
+              <Button type="submit" className="bg-red-600 hover:bg-red-700" disabled={loading}>
+                {loading ? 'Submitting...' : 'Submit RSVP'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }
 
 // Events Section
 function EventsSection({ events }) {
+  const [showRegisterDialog, setShowRegisterDialog] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [registerForm, setRegisterForm] = useState({ name: '', email: '', phone: '', participants: 1, message: '' })
+  const [loading, setLoading] = useState(false)
+
   const displayEvents = events?.length > 0 ? events : [
     { id: '1', title: 'ILTMC Anniversary Rally', description: 'Celebrating 12 years of brotherhood', date: new Date('2025-08-15'), venue: 'Agartala Central', type: 'Rally' },
     { id: '2', title: 'Bike Show & Meet', description: 'Display your machine and meet fellow riders', date: new Date('2025-07-01'), venue: 'City Convention Center', type: 'Show' },
     { id: '3', title: 'Charity Ride for Education', description: 'Riding for a cause - support underprivileged children', date: new Date('2025-06-25'), venue: 'Agartala to Udaipur', type: 'Charity' },
   ]
+
+  const openRegister = (event) => {
+    setSelectedEvent(event)
+    setShowRegisterDialog(true)
+  }
+
+  const handleRegisterSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const res = await fetch('/api/rsvp/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...registerForm,
+          eventId: selectedEvent.id,
+          eventName: selectedEvent.title
+        })
+      })
+      if (res.ok) {
+        toast.success('Registration submitted! We will contact you with details.')
+        setShowRegisterDialog(false)
+        setRegisterForm({ name: '', email: '', phone: '', participants: 1, message: '' })
+      } else {
+        toast.error('Failed to register')
+      }
+    } catch (error) {
+      toast.error('Something went wrong')
+    }
+    setLoading(false)
+  }
 
   return (
     <section id="events" className="py-24 bg-gradient-to-b from-black to-zinc-950">
@@ -555,9 +687,21 @@ function EventsSection({ events }) {
               viewport={{ once: true }}
               transition={{ delay: index * 0.1 }}
             >
-              <Card className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800 hover:border-red-500 transition-all duration-300 h-full">
+              <Card className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800 hover:border-red-500 transition-all duration-300 h-full overflow-hidden">
+                {event.imageUrl && (
+                  <div className="h-40 bg-zinc-800">
+                    <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" />
+                  </div>
+                )}
                 <CardContent className="p-6">
-                  <Badge className="mb-4 bg-red-600">{event.type}</Badge>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Badge className="bg-red-600">{event.type}</Badge>
+                    {event.externalLink && (
+                      <a href={event.externalLink} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                        <Link size={14} />
+                      </a>
+                    )}
+                  </div>
                   <h3 className="text-xl font-bold mb-2" style={{ fontFamily: 'Oswald, sans-serif' }}>
                     {event.title}
                   </h3>
@@ -572,7 +716,7 @@ function EventsSection({ events }) {
                       <span>{event.venue}</span>
                     </div>
                   </div>
-                  <Button variant="outline" className="w-full mt-4 border-red-500 text-red-500 hover:bg-red-500 hover:text-white">
+                  <Button variant="outline" className="w-full mt-4 border-red-500 text-red-500 hover:bg-red-500 hover:text-white" onClick={() => openRegister(event)}>
                     Register
                   </Button>
                 </CardContent>
@@ -581,6 +725,72 @@ function EventsSection({ events }) {
           ))}
         </div>
       </div>
+
+      {/* Register Dialog */}
+      <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
+        <DialogContent className="bg-zinc-900 border-zinc-800">
+          <DialogHeader>
+            <DialogTitle>Register for {selectedEvent?.title}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleRegisterSubmit} className="space-y-4 py-4">
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">Name *</label>
+              <Input
+                value={registerForm.name}
+                onChange={(e) => setRegisterForm({...registerForm, name: e.target.value})}
+                required
+                className="bg-zinc-800 border-zinc-700"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">Email *</label>
+              <Input
+                type="email"
+                value={registerForm.email}
+                onChange={(e) => setRegisterForm({...registerForm, email: e.target.value})}
+                required
+                className="bg-zinc-800 border-zinc-700"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm text-gray-400 mb-2 block">Phone *</label>
+                <Input
+                  value={registerForm.phone}
+                  onChange={(e) => setRegisterForm({...registerForm, phone: e.target.value})}
+                  required
+                  className="bg-zinc-800 border-zinc-700"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400 mb-2 block">No. of Participants</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={registerForm.participants}
+                  onChange={(e) => setRegisterForm({...registerForm, participants: parseInt(e.target.value) || 1})}
+                  className="bg-zinc-800 border-zinc-700"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">Message (optional)</label>
+              <Textarea
+                value={registerForm.message}
+                onChange={(e) => setRegisterForm({...registerForm, message: e.target.value})}
+                className="bg-zinc-800 border-zinc-700"
+                placeholder="Any questions or special requirements?"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowRegisterDialog(false)}>Cancel</Button>
+              <Button type="submit" className="bg-red-600 hover:bg-red-700" disabled={loading}>
+                {loading ? 'Submitting...' : 'Submit Registration'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }
@@ -636,12 +846,50 @@ function GallerySection() {
 // Join Section
 function JoinSection() {
   const [formData, setFormData] = useState({
-    name: '', email: '', phone: '', bike: '', experience: '', reason: ''
+    name: '', email: '', phone: '', bike: '', experience: '', reason: '',
+    aadhaarCard: '', aadhaarFileName: '', drivingLicense: '', drivingLicenseFileName: ''
   })
   const [loading, setLoading] = useState(false)
 
+  const handleFileUpload = (e, field) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB')
+      return
+    }
+
+    // Check file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a JPG, PNG, or PDF file')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1]
+      setFormData({
+        ...formData,
+        [field]: base64,
+        [field + 'FileName']: file.name
+      })
+      toast.success(`${field === 'aadhaarCard' ? 'Aadhaar Card' : 'Driving License'} uploaded`)
+    }
+    reader.readAsDataURL(file)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validate documents
+    if (!formData.aadhaarCard || !formData.drivingLicense) {
+      toast.error('Please upload both Aadhaar Card and Driving License')
+      return
+    }
+
     setLoading(true)
     try {
       const res = await fetch('/api/applications', {
@@ -651,9 +899,10 @@ function JoinSection() {
       })
       if (res.ok) {
         toast.success('Application submitted successfully! We will contact you soon.')
-        setFormData({ name: '', email: '', phone: '', bike: '', experience: '', reason: '' })
+        setFormData({ name: '', email: '', phone: '', bike: '', experience: '', reason: '', aadhaarCard: '', aadhaarFileName: '', drivingLicense: '', drivingLicenseFileName: '' })
       } else {
-        toast.error('Failed to submit application')
+        const data = await res.json()
+        toast.error(data.error || 'Failed to submit application')
       }
     } catch (error) {
       toast.error('Something went wrong')
@@ -754,6 +1003,82 @@ function JoinSection() {
                     className="bg-zinc-800 border-zinc-700"
                   />
                 </div>
+
+                {/* Document Uploads */}
+                <div className="border-t border-zinc-800 pt-6">
+                  <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                    <FileText className="text-red-500" size={20} />
+                    Required Documents (Self-Attested)
+                  </h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-gray-400 mb-2 block">Aadhaar Card *</label>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,.png,.pdf"
+                          onChange={(e) => handleFileUpload(e, 'aadhaarCard')}
+                          className="hidden"
+                          id="aadhaar-upload"
+                        />
+                        <label
+                          htmlFor="aadhaar-upload"
+                          className={`flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                            formData.aadhaarCard 
+                              ? 'border-green-500 bg-green-500/10' 
+                              : 'border-zinc-700 hover:border-red-500'
+                          }`}
+                        >
+                          {formData.aadhaarCard ? (
+                            <>
+                              <CheckCircle className="text-green-500" size={20} />
+                              <span className="text-sm text-green-500">{formData.aadhaarFileName || 'Uploaded'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="text-gray-400" size={20} />
+                              <span className="text-sm text-gray-400">Upload Aadhaar</span>
+                            </>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-400 mb-2 block">Driving License *</label>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,.png,.pdf"
+                          onChange={(e) => handleFileUpload(e, 'drivingLicense')}
+                          className="hidden"
+                          id="dl-upload"
+                        />
+                        <label
+                          htmlFor="dl-upload"
+                          className={`flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                            formData.drivingLicense 
+                              ? 'border-green-500 bg-green-500/10' 
+                              : 'border-zinc-700 hover:border-red-500'
+                          }`}
+                        >
+                          {formData.drivingLicense ? (
+                            <>
+                              <CheckCircle className="text-green-500" size={20} />
+                              <span className="text-sm text-green-500">{formData.drivingLicenseFileName || 'Uploaded'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="text-gray-400" size={20} />
+                              <span className="text-sm text-gray-400">Upload DL</span>
+                            </>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Max 5MB each. Accepted: JPG, PNG, PDF</p>
+                </div>
+
                 <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 py-6 text-lg" disabled={loading}>
                   {loading ? 'Submitting...' : 'SUBMIT APPLICATION'}
                 </Button>

@@ -326,7 +326,8 @@ function MembersTab({ token }) {
   const [showDialog, setShowDialog] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
   const [formData, setFormData] = useState({
-    name: '', roadName: '', rank: '', position: '', chapter: '', bike: '', status: 'active', phone: '', email: ''
+    name: '', roadName: '', rank: '', position: '', chapter: '', bike: '', 
+    status: 'active', phone: '', email: '', memberType: 'prospect', password: '', newPassword: ''
   })
 
   useEffect(() => {
@@ -358,20 +359,25 @@ function MembersTab({ token }) {
         : '/api/admin/members'
       const method = editingMember ? 'PUT' : 'POST'
       
+      const payload = { ...formData }
+      // Don't send empty passwords
+      if (!payload.password) delete payload.password
+      if (!payload.newPassword) delete payload.newPassword
+      
       const res = await fetch(url, {
         method,
         headers: { 
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       })
 
       if (res.ok) {
         toast.success(editingMember ? 'Member updated' : 'Member added')
         setShowDialog(false)
         setEditingMember(null)
-        setFormData({ name: '', roadName: '', rank: '', position: '', chapter: '', bike: '', status: 'active', phone: '', email: '' })
+        setFormData({ name: '', roadName: '', rank: '', position: '', chapter: '', bike: '', status: 'active', phone: '', email: '', memberType: 'prospect', password: '', newPassword: '' })
         fetchData()
       }
     } catch (error) {
@@ -404,14 +410,17 @@ function MembersTab({ token }) {
       bike: member.bike || '',
       status: member.status || 'active',
       phone: member.phone || '',
-      email: member.email || ''
+      email: member.email || '',
+      memberType: member.memberType || 'prospect',
+      password: '',
+      newPassword: ''
     })
     setShowDialog(true)
   }
 
   const openAdd = () => {
     setEditingMember(null)
-    setFormData({ name: '', roadName: '', rank: '', position: '', chapter: '', bike: '', status: 'active', phone: '', email: '' })
+    setFormData({ name: '', roadName: '', rank: '', position: '', chapter: '', bike: '', status: 'active', phone: '', email: '', memberType: 'prospect', password: '', newPassword: '' })
     setShowDialog(true)
   }
 
@@ -434,6 +443,7 @@ function MembersTab({ token }) {
               <thead className="bg-zinc-800/50">
                 <tr>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Member</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-400">Type</th>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Rank</th>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Position</th>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Chapter</th>
@@ -454,6 +464,11 @@ function MembersTab({ token }) {
                           <p className="text-sm text-red-500">&quot;{member.roadName}&quot;</p>
                         </div>
                       </div>
+                    </td>
+                    <td className="p-4">
+                      <Badge className={member.memberType === 'member' ? 'bg-green-600' : 'bg-orange-600'}>
+                        {member.memberType === 'member' ? '✓ Member' : '⏳ Prospect'}
+                      </Badge>
                     </td>
                     <td className="p-4">
                       <Badge variant="outline" className="border-yellow-500/50 text-yellow-500">
@@ -489,7 +504,7 @@ function MembersTab({ token }) {
                 ))}
                 {members.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-gray-500">
+                    <td colSpan={7} className="p-8 text-center text-gray-500">
                       No members found. Add your first member!
                     </td>
                   </tr>
@@ -517,11 +532,54 @@ function MembersTab({ token }) {
                 />
               </div>
               <div>
-                <Label>Road Name *</Label>
+                <Label>Road Name</Label>
                 <Input
                   value={formData.roadName}
                   onChange={(e) => setFormData({...formData, roadName: e.target.value})}
                   className="bg-zinc-800 border-zinc-700"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Email *</Label>
+                <Input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="bg-zinc-800 border-zinc-700"
+                />
+              </div>
+              <div>
+                <Label>Phone</Label>
+                <Input
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  className="bg-zinc-800 border-zinc-700"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Member Type *</Label>
+                <Select value={formData.memberType} onValueChange={(v) => setFormData({...formData, memberType: v})}>
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                    <SelectItem value="prospect">⏳ Prospect</SelectItem>
+                    <SelectItem value="member">✓ Permanent Member</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{editingMember ? 'New Password (leave blank to keep)' : 'Login Password *'}</Label>
+                <Input
+                  type="password"
+                  value={editingMember ? formData.newPassword : formData.password}
+                  onChange={(e) => setFormData({...formData, [editingMember ? 'newPassword' : 'password']: e.target.value})}
+                  className="bg-zinc-800 border-zinc-700"
+                  placeholder={editingMember ? 'Leave blank to keep current' : 'Min 6 characters'}
                 />
               </div>
             </div>
@@ -575,7 +633,7 @@ function MembersTab({ token }) {
                   </SelectTrigger>
                   <SelectContent className="bg-zinc-800 border-zinc-700">
                     <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="prospect">Prospect</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
                     <SelectItem value="veteran">Veteran</SelectItem>
                     <SelectItem value="suspended">Suspended</SelectItem>
                   </SelectContent>
@@ -591,25 +649,6 @@ function MembersTab({ token }) {
                 placeholder="e.g., Royal Enfield Classic 350"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Phone</Label>
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  className="bg-zinc-800 border-zinc-700"
-                />
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="bg-zinc-800 border-zinc-700"
-                />
-              </div>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
@@ -623,14 +662,15 @@ function MembersTab({ token }) {
   )
 }
 
-// Rides Tab
+// Rides Tab with Image Preview and Full Edit
 function RidesTab({ token }) {
   const [rides, setRides] = useState([])
   const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
+  const [editingRide, setEditingRide] = useState(null)
   const [formData, setFormData] = useState({
     title: '', description: '', date: '', startPoint: '', endPoint: '', 
-    distance: '', difficulty: 'Medium', captain: '', isPublic: true
+    distance: '', difficulty: 'Medium', captain: '', imageUrl: '', externalLink: '', isPublic: true
   })
 
   useEffect(() => {
@@ -649,8 +689,11 @@ function RidesTab({ token }) {
 
   const handleSave = async () => {
     try {
-      const res = await fetch('/api/admin/rides', {
-        method: 'POST',
+      const url = editingRide ? `/api/admin/rides/${editingRide.id}` : '/api/admin/rides'
+      const method = editingRide ? 'PUT' : 'POST'
+      
+      const res = await fetch(url, {
+        method,
         headers: { 
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -661,13 +704,14 @@ function RidesTab({ token }) {
         })
       })
       if (res.ok) {
-        toast.success('Ride created')
+        toast.success(editingRide ? 'Ride updated' : 'Ride created')
         setShowDialog(false)
-        setFormData({ title: '', description: '', date: '', startPoint: '', endPoint: '', distance: '', difficulty: 'Medium', captain: '', isPublic: true })
+        setEditingRide(null)
+        setFormData({ title: '', description: '', date: '', startPoint: '', endPoint: '', distance: '', difficulty: 'Medium', captain: '', imageUrl: '', externalLink: '', isPublic: true })
         fetchRides()
       }
     } catch (error) {
-      toast.error('Failed to create ride')
+      toast.error('Failed to save ride')
     }
   }
 
@@ -685,6 +729,30 @@ function RidesTab({ token }) {
     }
   }
 
+  const openEdit = (ride) => {
+    setEditingRide(ride)
+    setFormData({
+      title: ride.title || '',
+      description: ride.description || '',
+      date: ride.date ? new Date(ride.date).toISOString().slice(0, 16) : '',
+      startPoint: ride.startPoint || '',
+      endPoint: ride.endPoint || '',
+      distance: ride.distance?.toString() || '',
+      difficulty: ride.difficulty || 'Medium',
+      captain: ride.captain || '',
+      imageUrl: ride.imageUrl || '',
+      externalLink: ride.externalLink || '',
+      isPublic: ride.isPublic ?? true
+    })
+    setShowDialog(true)
+  }
+
+  const openAdd = () => {
+    setEditingRide(null)
+    setFormData({ title: '', description: '', date: '', startPoint: '', endPoint: '', distance: '', difficulty: 'Medium', captain: '', imageUrl: '', externalLink: '', isPublic: true })
+    setShowDialog(true)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -692,14 +760,19 @@ function RidesTab({ token }) {
           <h1 className="text-3xl font-bold" style={{ fontFamily: 'Oswald, sans-serif' }}>Rides</h1>
           <p className="text-gray-400">Manage club rides</p>
         </div>
-        <Button onClick={() => setShowDialog(true)} className="bg-red-600 hover:bg-red-700">
+        <Button onClick={openAdd} className="bg-red-600 hover:bg-red-700">
           <Plus size={16} className="mr-2" /> Create Ride
         </Button>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {rides.map((ride) => (
-          <Card key={ride.id} className="bg-zinc-900/50 border-zinc-800">
+          <Card key={ride.id} className="bg-zinc-900/50 border-zinc-800 overflow-hidden">
+            {ride.imageUrl && (
+              <div className="h-40 bg-zinc-800 relative">
+                <img src={ride.imageUrl} alt={ride.title} className="w-full h-full object-cover" />
+              </div>
+            )}
             <CardHeader>
               <div className="flex justify-between">
                 <Badge className={
@@ -711,7 +784,7 @@ function RidesTab({ token }) {
                 <span className="text-red-500 font-bold">{ride.distance} KM</span>
               </div>
               <CardTitle className="text-lg">{ride.title}</CardTitle>
-              <CardDescription>{ride.description}</CardDescription>
+              <CardDescription className="line-clamp-2">{ride.description}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm text-gray-400">
@@ -720,8 +793,8 @@ function RidesTab({ token }) {
                 <p><User size={14} className="inline mr-2" />Captain: {ride.captain || 'TBD'}</p>
               </div>
               <div className="flex gap-2 mt-4">
-                <Button size="sm" variant="outline" className="flex-1">
-                  <Eye size={14} className="mr-1" /> Attendance
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => openEdit(ride)}>
+                  <Edit size={14} className="mr-1" /> Edit
                 </Button>
                 <Button size="sm" variant="destructive" onClick={() => handleDelete(ride.id)}>
                   <Trash2 size={14} />
@@ -737,11 +810,11 @@ function RidesTab({ token }) {
         )}
       </div>
 
-      {/* Create Ride Dialog */}
+      {/* Create/Edit Ride Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-lg">
+        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Ride</DialogTitle>
+            <DialogTitle>{editingRide ? 'Edit Ride' : 'Create New Ride'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -821,6 +894,29 @@ function RidesTab({ token }) {
                 />
               </div>
             </div>
+            <div>
+              <Label>Image URL</Label>
+              <Input
+                value={formData.imageUrl}
+                onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
+                className="bg-zinc-800 border-zinc-700"
+                placeholder="https://..."
+              />
+              {formData.imageUrl && (
+                <div className="mt-2 h-32 bg-zinc-800 rounded overflow-hidden">
+                  <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+            <div>
+              <Label>External Link</Label>
+              <Input
+                value={formData.externalLink}
+                onChange={(e) => setFormData({...formData, externalLink: e.target.value})}
+                className="bg-zinc-800 border-zinc-700"
+                placeholder="https://..."
+              />
+            </div>
             <div className="flex items-center gap-2">
               <Switch
                 checked={formData.isPublic}
@@ -831,7 +927,9 @@ function RidesTab({ token }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">Create Ride</Button>
+            <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">
+              {editingRide ? 'Update' : 'Create'} Ride
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1191,9 +1289,12 @@ function EventsTab({ token }) {
   )
 }
 
-// Applications Tab
+// Applications Tab with Document Viewing and Approval
 function ApplicationsTab({ token }) {
   const [applications, setApplications] = useState([])
+  const [selectedApp, setSelectedApp] = useState(null)
+  const [showDocDialog, setShowDocDialog] = useState(false)
+  const [approvalType, setApprovalType] = useState('prospect')
 
   useEffect(() => {
     fetchApplications()
@@ -1204,17 +1305,22 @@ function ApplicationsTab({ token }) {
     setApplications(await res.json())
   }
 
-  const updateStatus = async (id, status) => {
+  const updateStatus = async (id, status, memberType = 'prospect') => {
     await fetch(`/api/admin/applications/${id}`, {
       method: 'PUT',
       headers: { 
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       },
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status, memberType })
     })
     toast.success(`Application ${status}`)
     fetchApplications()
+  }
+
+  const viewDocuments = (app) => {
+    setSelectedApp(app)
+    setShowDocDialog(true)
   }
 
   return (
@@ -1228,9 +1334,9 @@ function ApplicationsTab({ token }) {
         {applications.map((app) => (
           <Card key={app.id} className="bg-zinc-900/50 border-zinc-800">
             <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h3 className="text-xl font-bold">{app.name}</h3>
                     <Badge className={
                       app.status === 'pending' ? 'bg-yellow-600' :
@@ -1238,6 +1344,11 @@ function ApplicationsTab({ token }) {
                     }>
                       {app.status}
                     </Badge>
+                    {app.memberType && app.status === 'approved' && (
+                      <Badge className={app.memberType === 'member' ? 'bg-blue-600' : 'bg-orange-600'}>
+                        {app.memberType === 'member' ? '✓ Member' : '⏳ Prospect'}
+                      </Badge>
+                    )}
                   </div>
                   <div className="grid md:grid-cols-2 gap-2 text-sm text-gray-400">
                     <p><Mail size={14} className="inline mr-2" />{app.email}</p>
@@ -1246,18 +1357,52 @@ function ApplicationsTab({ token }) {
                     <p><Clock size={14} className="inline mr-2" />{app.experience}</p>
                   </div>
                   <p className="mt-2 text-gray-300">{app.reason}</p>
+                  
+                  {/* Document Status */}
+                  <div className="mt-3 flex gap-2 flex-wrap">
+                    {app.aadhaarCard && (
+                      <Badge variant="outline" className="border-green-500 text-green-500">
+                        <FileText size={12} className="mr-1" /> Aadhaar Uploaded
+                      </Badge>
+                    )}
+                    {app.drivingLicense && (
+                      <Badge variant="outline" className="border-green-500 text-green-500">
+                        <FileText size={12} className="mr-1" /> DL Uploaded
+                      </Badge>
+                    )}
+                    {(app.aadhaarCard || app.drivingLicense) && (
+                      <Button size="sm" variant="outline" onClick={() => viewDocuments(app)}>
+                        <Eye size={14} className="mr-1" /> View Documents
+                      </Button>
+                    )}
+                  </div>
+                  
                   <p className="text-xs text-gray-500 mt-2">
                     Applied: {new Date(app.createdAt).toLocaleDateString()}
                   </p>
                 </div>
                 {app.status === 'pending' && (
-                  <div className="flex gap-2">
-                    <Button onClick={() => updateStatus(app.id, 'approved')} className="bg-green-600 hover:bg-green-700">
-                      <CheckCircle size={16} className="mr-1" /> Approve
-                    </Button>
-                    <Button onClick={() => updateStatus(app.id, 'rejected')} variant="destructive">
-                      <XCircle size={16} className="mr-1" /> Reject
-                    </Button>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2 items-center">
+                      <Label className="text-sm whitespace-nowrap">Approve as:</Label>
+                      <Select value={approvalType} onValueChange={setApprovalType}>
+                        <SelectTrigger className="bg-zinc-800 border-zinc-700 w-36">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-800 border-zinc-700">
+                          <SelectItem value="prospect">⏳ Prospect</SelectItem>
+                          <SelectItem value="member">✓ Member</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={() => updateStatus(app.id, 'approved', approvalType)} className="bg-green-600 hover:bg-green-700">
+                        <CheckCircle size={16} className="mr-1" /> Approve
+                      </Button>
+                      <Button onClick={() => updateStatus(app.id, 'rejected')} variant="destructive">
+                        <XCircle size={16} className="mr-1" /> Reject
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1272,6 +1417,46 @@ function ApplicationsTab({ token }) {
           </Card>
         )}
       </div>
+
+      {/* Document Viewing Dialog */}
+      <Dialog open={showDocDialog} onOpenChange={setShowDocDialog}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Documents - {selectedApp?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="grid md:grid-cols-2 gap-6 py-4">
+            {selectedApp?.aadhaarCard && (
+              <div>
+                <h4 className="font-medium mb-2">Aadhaar Card (Self-Attested)</h4>
+                <p className="text-xs text-gray-500 mb-2">{selectedApp.aadhaarFileName}</p>
+                <div className="border border-zinc-700 rounded-lg overflow-hidden bg-zinc-800">
+                  <img 
+                    src={`data:image/jpeg;base64,${selectedApp.aadhaarCard}`} 
+                    alt="Aadhaar Card" 
+                    className="w-full h-auto"
+                  />
+                </div>
+              </div>
+            )}
+            {selectedApp?.drivingLicense && (
+              <div>
+                <h4 className="font-medium mb-2">Driving License (Self-Attested)</h4>
+                <p className="text-xs text-gray-500 mb-2">{selectedApp.drivingLicenseFileName}</p>
+                <div className="border border-zinc-700 rounded-lg overflow-hidden bg-zinc-800">
+                  <img 
+                    src={`data:image/jpeg;base64,${selectedApp.drivingLicense}`} 
+                    alt="Driving License" 
+                    className="w-full h-auto"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDocDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

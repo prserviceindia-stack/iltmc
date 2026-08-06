@@ -3,12 +3,50 @@ import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import nodemailer from 'nodemailer'
 
 // MongoDB connection
 let client
 let db
 
 const JWT_SECRET = process.env.JWT_SECRET || 'iltmc-super-secret-key-2013'
+
+// Email transporter
+let emailTransporter = null
+
+function getEmailTransporter() {
+  if (!emailTransporter) {
+    emailTransporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS?.replace(/\s/g, '') // Remove spaces from app password
+      }
+    })
+  }
+  return emailTransporter
+}
+
+// Send email notification
+async function sendEmailNotification(subject, htmlContent, toEmail = null) {
+  try {
+    const transporter = getEmailTransporter()
+    const mailOptions = {
+      from: `"ILTMC Website" <${process.env.SMTP_USER}>`,
+      to: toEmail || process.env.NOTIFICATION_EMAIL || 'intrepidusleonestripura@gmail.com',
+      subject: subject,
+      html: htmlContent
+    }
+    await transporter.sendMail(mailOptions)
+    console.log('Email sent successfully:', subject)
+    return true
+  } catch (error) {
+    console.error('Email send error:', error)
+    return false
+  }
+}
 
 // Captcha store (in-memory, with expiration)
 const captchaStore = new Map()
@@ -299,16 +337,71 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json(cleanedPost))
     }
 
-    // Submit join application
+    // Get public member profile with rank uploads
+    if (route.startsWith('/members/') && route.endsWith('/profile') && method === 'GET') {
+      const memberId = path[1]
+      const member = await db.collection('members').findOne({ id: memberId })
+      if (!member) {
+        return handleCORS(NextResponse.json({ error: 'Member not found' }, { status: 404 }))
+      }
+      
+      // Get rank uploads for this member
+      const uploads = await db.collection('ride_uploads')
+        .find({ memberId: memberId, status: 'approved' })
+        .sort({ uploadedAt: -1 })
+        .toArray()
+      
+      const cleanedUploads = uploads.map(({ _id, fileData, ...rest }) => rest)
+      const { _id, ...cleanedMember } = member
+      
+      return handleCORS(NextResponse.json({
+        ...cleanedMember,
+        rankUploads: cleanedUploads
+      }))
+    }
+
+    // Submit join application with document uploads
     if (route === '/applications' && method === 'POST') {
       const body = await request.json()
+      
+      // Validate required documents
+      if (!body.aadhaarCard || !body.drivingLicense) {
+        return handleCORS(NextResponse.json({ error: 'Aadhaar Card and Driving License are mandatory' }, { status: 400 }))
+      }
+
       const application = {
         id: uuidv4(),
-        ...body,
+        name: body.name,
+        email: body.email,
+        phone: body.phone,
+        bike: body.bike,
+        experience: body.experience,
+        reason: body.reason,
+        aadhaarCard: body.aadhaarCard, // Base64 encoded
+        aadhaarFileName: body.aadhaarFileName,
+        drivingLicense: body.drivingLicense, // Base64 encoded
+        drivingLicenseFileName: body.drivingLicenseFileName,
         status: 'pending',
+        memberType: 'prospect', // Default to prospect
         createdAt: new Date()
       }
       await db.collection('applications').insertOne(application)
+
+      // Send email notification
+      const emailHtml = `
+        <h2>New Membership Application - ILTMC</h2>
+        <p><strong>Name:</strong> ${body.name}</p>
+        <p><strong>Email:</strong> ${body.email}</p>
+        <p><strong>Phone:</strong> ${body.phone}</p>
+        <p><strong>Bike:</strong> ${body.bike}</p>
+        <p><strong>Experience:</strong> ${body.experience}</p>
+        <p><strong>Reason for Joining:</strong> ${body.reason}</p>
+        <p><strong>Documents:</strong> Aadhaar Card and Driving License attached</p>
+        <hr>
+        <p>Please review this application in the admin panel.</p>
+      `
+      await sendEmailNotification('New Membership Application - ' + body.name, emailHtml)
+
       return handleCORS(NextResponse.json({ message: 'Application submitted successfully', id: application.id }))
     }
 
@@ -323,6 +416,68 @@ async function handleRoute(request, { params }) {
       }
       await db.collection('contacts').insertOne(contact)
       return handleCORS(NextResponse.json({ message: 'Message sent successfully' }))
+    }
+
+    // RSVP for rides
+    if (route === '/rsvp/ride' && method === 'POST') {
+      const body = await request.json()
+      const rsvp = {
+        id: uuidv4(),
+        type: 'ride',
+        rideId: body.rideId,
+        rideName: body.rideName,
+        name: body.name,
+        email: body.email,
+        phone: body.phone,
+        message: body.message || '',
+        createdAt: new Date()
+      }
+      await db.collection('rsvps').insertOne(rsvp)
+
+      // Send email notification
+      const emailHtml = `
+        <h2>New Ride RSVP - ILTMC</h2>
+        <p><strong>Ride:</strong> ${body.rideName}</p>
+        <p><strong>Name:</strong> ${body.name}</p>
+        <p><strong>Email:</strong> ${body.email}</p>
+        <p><strong>Phone:</strong> ${body.phone}</p>
+        ${body.message ? `<p><strong>Message:</strong> ${body.message}</p>` : ''}
+      `
+      await sendEmailNotification('New Ride RSVP - ' + body.rideName, emailHtml)
+
+      return handleCORS(NextResponse.json({ message: 'RSVP submitted successfully' }))
+    }
+
+    // Register for events
+    if (route === '/rsvp/event' && method === 'POST') {
+      const body = await request.json()
+      const registration = {
+        id: uuidv4(),
+        type: 'event',
+        eventId: body.eventId,
+        eventName: body.eventName,
+        name: body.name,
+        email: body.email,
+        phone: body.phone,
+        participants: body.participants || 1,
+        message: body.message || '',
+        createdAt: new Date()
+      }
+      await db.collection('rsvps').insertOne(registration)
+
+      // Send email notification
+      const emailHtml = `
+        <h2>New Event Registration - ILTMC</h2>
+        <p><strong>Event:</strong> ${body.eventName}</p>
+        <p><strong>Name:</strong> ${body.name}</p>
+        <p><strong>Email:</strong> ${body.email}</p>
+        <p><strong>Phone:</strong> ${body.phone}</p>
+        <p><strong>Participants:</strong> ${body.participants || 1}</p>
+        ${body.message ? `<p><strong>Message:</strong> ${body.message}</p>` : ''}
+      `
+      await sendEmailNotification('New Event Registration - ' + body.eventName, emailHtml)
+
+      return handleCORS(NextResponse.json({ message: 'Registration submitted successfully' }))
     }
 
     // Newsletter signup
@@ -882,7 +1037,7 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json(cleanedMembers))
     }
 
-    // Create member
+    // Create member (admin creates with password)
     if (route === '/admin/members' && method === 'POST') {
       const user = await authenticateRequest(request)
       if (!user || !['super_admin', 'admin'].includes(user.role)) {
@@ -890,10 +1045,34 @@ async function handleRoute(request, { params }) {
       }
 
       const body = await request.json()
+      const memberId = uuidv4()
+
+      // If password provided, create member account for login
+      if (body.password && body.email) {
+        const hashedPassword = await bcrypt.hash(body.password, 12)
+        await db.collection('member_accounts').insertOne({
+          id: memberId,
+          email: body.email,
+          password: hashedPassword,
+          createdAt: new Date()
+        })
+      }
+
       const member = {
-        id: uuidv4(),
-        ...body,
-        status: body.status || 'prospect',
+        id: memberId,
+        accountId: body.password ? memberId : null,
+        name: body.name,
+        roadName: body.roadName || '',
+        email: body.email || '',
+        phone: body.phone || '',
+        bike: body.bike || '',
+        rank: body.rank || '',
+        position: body.position || '',
+        chapter: body.chapter || '',
+        memberType: body.memberType || 'prospect', // 'member' or 'prospect'
+        status: body.status || 'active',
+        totalKilometers: 0,
+        ridesCount: 0,
         createdAt: new Date(),
         updatedAt: new Date()
       }
@@ -910,6 +1089,20 @@ async function handleRoute(request, { params }) {
 
       const memberId = path[2]
       const body = await request.json()
+      
+      // Update password if provided
+      if (body.newPassword) {
+        const member = await db.collection('members').findOne({ id: memberId })
+        if (member?.accountId) {
+          const hashedPassword = await bcrypt.hash(body.newPassword, 12)
+          await db.collection('member_accounts').updateOne(
+            { id: member.accountId },
+            { $set: { password: hashedPassword, updatedAt: new Date() } }
+          )
+        }
+        delete body.newPassword
+      }
+      
       await db.collection('members').updateOne(
         { id: memberId },
         { $set: { ...body, updatedAt: new Date() } }
@@ -925,6 +1118,11 @@ async function handleRoute(request, { params }) {
       }
 
       const memberId = path[2]
+      // Also delete member account if exists
+      const member = await db.collection('members').findOne({ id: memberId })
+      if (member?.accountId) {
+        await db.collection('member_accounts').deleteOne({ id: member.accountId })
+      }
       await db.collection('members').deleteOne({ id: memberId })
       return handleCORS(NextResponse.json({ message: 'Member deleted' }))
     }
@@ -941,7 +1139,7 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json(cleanedRides))
     }
 
-    // Create ride
+    // Create ride with image
     if (route === '/admin/rides' && method === 'POST') {
       const user = await authenticateRequest(request)
       if (!user || !['super_admin', 'admin', 'ride_captain'].includes(user.role)) {
@@ -951,8 +1149,15 @@ async function handleRoute(request, { params }) {
       const body = await request.json()
       const ride = {
         id: uuidv4(),
-        ...body,
+        title: body.title,
+        description: body.description,
         date: new Date(body.date),
+        startPoint: body.startPoint,
+        endPoint: body.endPoint,
+        distance: body.distance,
+        difficulty: body.difficulty,
+        imageUrl: body.imageUrl || '', // Ride image
+        externalLink: body.externalLink || '',
         isPublic: body.isPublic ?? true,
         createdAt: new Date(),
         createdBy: user.id
@@ -968,8 +1173,9 @@ async function handleRoute(request, { params }) {
 
       const rideId = path[2]
       const body = await request.json()
-      if (body.date) body.date = new Date(body.date)
-      await db.collection('rides').updateOne({ id: rideId }, { $set: { ...body, updatedAt: new Date() } })
+      const updateData = { ...body, updatedAt: new Date() }
+      if (body.date) updateData.date = new Date(body.date)
+      await db.collection('rides').updateOne({ id: rideId }, { $set: updateData })
       return handleCORS(NextResponse.json({ message: 'Ride updated' }))
     }
 
