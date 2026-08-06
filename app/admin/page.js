@@ -6,7 +6,7 @@ import {
   Users, MapPin, Calendar, Trophy, LayoutDashboard, Settings, 
   LogOut, Bike, Shield, Plus, Edit, Trash2, Eye, CheckCircle,
   XCircle, Clock, Mail, FileText, BarChart3, Search, Menu, X,
-  ChevronDown, User, Bell, Activity, TrendingUp, Globe, Image,
+  ChevronDown, ChevronLeft, ChevronRight, User, Bell, Activity, TrendingUp, Globe, Image,
   Type, Link, Phone, Home, Info, Award, Building
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 const LOGO_URL = 'https://customer-assets.emergentagent.com/job_9bab05d4-0d45-4f8d-a396-cf0659408542/artifacts/lv5k959m_Ilt%20logo.png'
 
@@ -207,7 +208,7 @@ function DashboardTab({ token }) {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64">Loading...</div>
+    return <LoadingSpinner label="Loading dashboard..." fullHeight />
   }
 
   const statCards = [
@@ -326,31 +327,72 @@ function MembersTab({ token }) {
   const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [formData, setFormData] = useState({
     name: '', roadName: '', rank: '', position: '', chapter: '', bike: '', 
     status: 'active', phone: '', email: '', memberType: 'prospect', password: '', newPassword: ''
   })
 
   useEffect(() => {
-    fetchData()
+    fetchMeta()
   }, [])
 
-  const fetchData = async () => {
+  useEffect(() => {
+    fetchMembers()
+  }, [page, limit, search])
+
+  const fetchMeta = async () => {
     try {
-      const [membersRes, ranksRes, positionsRes, chaptersRes] = await Promise.all([
-        fetch('/api/admin/members', { headers: { Authorization: `Bearer ${token}` } }),
+      const [ranksRes, positionsRes, chaptersRes] = await Promise.all([
         fetch('/api/ranks'),
         fetch('/api/positions'),
         fetch('/api/chapters')
       ])
-      setMembers(await membersRes.json())
       setRanks(await ranksRes.json())
       setPositions(await positionsRes.json())
       setChapters(await chaptersRes.json())
     } catch (error) {
       console.error(error)
     }
+  }
+
+  const fetchMembers = async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      })
+      if (search) params.set('search', search)
+      const membersRes = await fetch(`/api/admin/members?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const data = await membersRes.json()
+      // Support both new paginated shape and legacy array
+      if (Array.isArray(data)) {
+        setMembers(data)
+        setTotal(data.length)
+        setTotalPages(1)
+      } else {
+        setMembers(data.members || [])
+        setTotal(data.total || 0)
+        setTotalPages(data.totalPages || 1)
+        if (data.page && data.page !== page) setPage(data.page)
+      }
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to load members')
+    }
     setLoading(false)
+  }
+
+  const fetchData = async () => {
+    await Promise.all([fetchMeta(), fetchMembers()])
   }
 
   const handleSave = async () => {
@@ -425,6 +467,15 @@ function MembersTab({ token }) {
     setShowDialog(true)
   }
 
+  const handleSearch = (e) => {
+    e?.preventDefault?.()
+    setPage(1)
+    setSearch(searchInput.trim())
+  }
+
+  const from = total === 0 ? 0 : (page - 1) * limit + 1
+  const to = Math.min(page * limit, total)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -435,6 +486,44 @@ function MembersTab({ token }) {
         <Button onClick={openAdd} className="bg-red-600 hover:bg-red-700">
           <Plus size={16} className="mr-2" /> Add Member
         </Button>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-3 md:items-center justify-between">
+        <form onSubmit={handleSearch} className="flex gap-2 flex-1 max-w-xl">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search name, road name, email, phone..."
+              className="pl-9 bg-zinc-900 border-zinc-800"
+            />
+          </div>
+          <Button type="submit" variant="outline" className="border-zinc-700">Search</Button>
+          {search && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setSearchInput(''); setSearch(''); setPage(1) }}
+            >
+              Clear
+            </Button>
+          )}
+        </form>
+        <div className="flex items-center gap-2 text-sm text-gray-400">
+          <span>Per page</span>
+          <Select value={String(limit)} onValueChange={(v) => { setPage(1); setLimit(Number(v)) }}>
+            <SelectTrigger className="w-24 bg-zinc-900 border-zinc-800">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-900 border-zinc-800">
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Card className="bg-zinc-900/50 border-zinc-800">
@@ -453,12 +542,23 @@ function MembersTab({ token }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800">
-                {members.map((member) => (
+                {loading && (
+                  <tr>
+                    <td colSpan={7} className="p-4">
+                      <LoadingSpinner label="Loading members..." />
+                    </td>
+                  </tr>
+                )}
+                {!loading && members.map((member) => (
                   <tr key={member.id} className="hover:bg-zinc-800/30">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center text-lg">
-                          {positions.find(p => p.name === member.position)?.badge || ranks.find(r => r.name === member.rank)?.badge || '⚔️'}
+                        <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center text-lg overflow-hidden">
+                          {member.photoUrl ? (
+                            <img src={member.photoUrl} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            positions.find(p => p.name === member.position)?.badge || ranks.find(r => r.name === member.rank)?.badge || '⚔️'
+                          )}
                         </div>
                         <div>
                           <p className="font-medium">{member.name}</p>
@@ -503,15 +603,43 @@ function MembersTab({ token }) {
                     </td>
                   </tr>
                 ))}
-                {members.length === 0 && (
+                {!loading && members.length === 0 && (
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-gray-500">
-                      No members found. Add your first member!
+                      {search ? 'No members match your search.' : 'No members found. Add your first member!'}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 border-t border-zinc-800">
+            <p className="text-sm text-gray-400">
+              Showing {from}-{to} of {total} members
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-zinc-700"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft size={16} className="mr-1" /> Prev
+              </Button>
+              <span className="text-sm text-gray-300 min-w-[7rem] text-center">
+                Page {page} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-zinc-700"
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next <ChevronRight size={16} className="ml-1" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -766,6 +894,9 @@ function RidesTab({ token }) {
         </Button>
       </div>
 
+      {loading ? (
+        <LoadingSpinner label="Loading rides..." fullHeight />
+      ) : (
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {rides.map((ride) => (
           <Card key={ride.id} className="bg-zinc-900/50 border-zinc-800 overflow-hidden">
@@ -810,6 +941,7 @@ function RidesTab({ token }) {
           </div>
         )}
       </div>
+      )}
 
       {/* Create/Edit Ride Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -944,18 +1076,26 @@ function AttendanceTab({ token }) {
   const [members, setMembers] = useState([])
   const [selectedRide, setSelectedRide] = useState(null)
   const [attendance, setAttendance] = useState({})
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchData()
   }, [])
 
   const fetchData = async () => {
-    const [ridesRes, membersRes] = await Promise.all([
-      fetch('/api/admin/rides', { headers: { Authorization: `Bearer ${token}` } }),
-      fetch('/api/admin/members', { headers: { Authorization: `Bearer ${token}` } })
-    ])
-    setRides(await ridesRes.json())
-    setMembers(await membersRes.json())
+    setLoading(true)
+    try {
+      const [ridesRes, membersRes] = await Promise.all([
+        fetch('/api/admin/rides', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/admin/members?light=1', { headers: { Authorization: `Bearer ${token}` } })
+      ])
+      setRides(await ridesRes.json())
+      const membersData = await membersRes.json()
+      setMembers(Array.isArray(membersData) ? membersData : (membersData.members || []))
+    } catch (e) {
+      console.error(e)
+    }
+    setLoading(false)
   }
 
   const fetchAttendance = async (rideId) => {
@@ -989,6 +1129,9 @@ function AttendanceTab({ token }) {
         <p className="text-gray-400">Track member attendance for rides</p>
       </div>
 
+      {loading ? (
+        <LoadingSpinner label="Loading attendance..." fullHeight />
+      ) : (
       <div className="grid lg:grid-cols-3 gap-6">
         <Card className="bg-zinc-900/50 border-zinc-800">
           <CardHeader>
@@ -1067,6 +1210,7 @@ function AttendanceTab({ token }) {
           </CardContent>
         </Card>
       </div>
+      )}
     </div>
   )
 }
@@ -1074,6 +1218,7 @@ function AttendanceTab({ token }) {
 // Events Tab
 function EventsTab({ token }) {
   const [events, setEvents] = useState([])
+  const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
   const [editingEvent, setEditingEvent] = useState(null)
   const [formData, setFormData] = useState({
@@ -1086,8 +1231,14 @@ function EventsTab({ token }) {
   }, [])
 
   const fetchEvents = async () => {
-    const res = await fetch('/api/admin/events', { headers: { Authorization: `Bearer ${token}` } })
-    setEvents(await res.json())
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/events', { headers: { Authorization: `Bearer ${token}` } })
+      setEvents(await res.json())
+    } catch (e) {
+      console.error(e)
+    }
+    setLoading(false)
   }
 
   const handleSave = async () => {
@@ -1156,6 +1307,9 @@ function EventsTab({ token }) {
         </Button>
       </div>
 
+      {loading ? (
+        <LoadingSpinner label="Loading events..." fullHeight />
+      ) : (
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {events.map((event) => (
           <Card key={event.id} className="bg-zinc-900/50 border-zinc-800 overflow-hidden">
@@ -1196,6 +1350,7 @@ function EventsTab({ token }) {
           </div>
         )}
       </div>
+      )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="bg-zinc-900 border-zinc-800 max-w-lg max-h-[90vh] overflow-y-auto">
@@ -1293,6 +1448,7 @@ function EventsTab({ token }) {
 // Applications Tab with Document Viewing and Approval
 function ApplicationsTab({ token }) {
   const [applications, setApplications] = useState([])
+  const [loading, setLoading] = useState(true)
   const [selectedApp, setSelectedApp] = useState(null)
   const [showDocDialog, setShowDocDialog] = useState(false)
   const [approvalType, setApprovalType] = useState('prospect')
@@ -1302,8 +1458,14 @@ function ApplicationsTab({ token }) {
   }, [])
 
   const fetchApplications = async () => {
-    const res = await fetch('/api/admin/applications', { headers: { Authorization: `Bearer ${token}` } })
-    setApplications(await res.json())
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/applications', { headers: { Authorization: `Bearer ${token}` } })
+      setApplications(await res.json())
+    } catch (e) {
+      console.error(e)
+    }
+    setLoading(false)
   }
 
   const updateStatus = async (id, status, memberType = 'prospect') => {
@@ -1331,6 +1493,9 @@ function ApplicationsTab({ token }) {
         <p className="text-gray-400">Review membership applications</p>
       </div>
 
+      {loading ? (
+        <LoadingSpinner label="Loading applications..." fullHeight />
+      ) : (
       <div className="space-y-4">
         {applications.map((app) => (
           <Card key={app.id} className="bg-zinc-900/50 border-zinc-800">
@@ -1418,6 +1583,7 @@ function ApplicationsTab({ token }) {
           </Card>
         )}
       </div>
+      )}
 
       {/* Document Viewing Dialog */}
       <Dialog open={showDocDialog} onOpenChange={setShowDocDialog}>
@@ -1465,14 +1631,21 @@ function ApplicationsTab({ token }) {
 // Contacts Tab
 function ContactsTab({ token }) {
   const [contacts, setContacts] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchContacts()
   }, [])
 
   const fetchContacts = async () => {
-    const res = await fetch('/api/admin/contacts', { headers: { Authorization: `Bearer ${token}` } })
-    setContacts(await res.json())
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/contacts', { headers: { Authorization: `Bearer ${token}` } })
+      setContacts(await res.json())
+    } catch (e) {
+      console.error(e)
+    }
+    setLoading(false)
   }
 
   const markRead = async (id) => {
@@ -1490,6 +1663,9 @@ function ContactsTab({ token }) {
         <p className="text-gray-400">Contact form submissions</p>
       </div>
 
+      {loading ? (
+        <LoadingSpinner label="Loading messages..." fullHeight />
+      ) : (
       <div className="space-y-4">
         {contacts.map((contact) => (
           <Card key={contact.id} className={`bg-zinc-900/50 border-zinc-800 ${!contact.read ? 'border-l-4 border-l-red-500' : ''}`}>
@@ -1520,6 +1696,7 @@ function ContactsTab({ token }) {
           </Card>
         )}
       </div>
+      )}
     </div>
   )
 }
@@ -1627,7 +1804,7 @@ function GalleryTab({ token }) {
       </div>
 
       {loading ? (
-        <div className="text-center py-12">Loading...</div>
+        <LoadingSpinner label="Loading gallery..." fullHeight />
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {gallery.map((item) => (
@@ -1765,7 +1942,7 @@ function SEOTab({ token }) {
     toast.success('SEO settings saved')
   }
 
-  if (loading) return <div>Loading...</div>
+  if (loading) return <LoadingSpinner label="Loading SEO settings..." fullHeight />
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
 
@@ -2138,7 +2315,7 @@ function ContentTab({ token }) {
     setContent({ ...content, timeline: content.timeline.filter((_, i) => i !== index) })
   }
 
-  if (loading) return <div className="text-center py-8">Loading...</div>
+  if (loading) return <LoadingSpinner label="Loading website content..." fullHeight />
 
   const sections = [
     { id: 'branding', label: 'Branding & Logo', icon: Image },
@@ -2560,6 +2737,7 @@ function ContentTab({ token }) {
 function RanksPositionsTab({ token }) {
   const [ranks, setRanks] = useState([])
   const [positions, setPositions] = useState([])
+  const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
   const [dialogType, setDialogType] = useState('rank')
   const [editingItem, setEditingItem] = useState(null)
@@ -2570,12 +2748,18 @@ function RanksPositionsTab({ token }) {
   }, [])
 
   const fetchData = async () => {
-    const [ranksRes, positionsRes] = await Promise.all([
-      fetch('/api/ranks'),
-      fetch('/api/positions')
-    ])
-    setRanks(await ranksRes.json())
-    setPositions(await positionsRes.json())
+    setLoading(true)
+    try {
+      const [ranksRes, positionsRes] = await Promise.all([
+        fetch('/api/ranks'),
+        fetch('/api/positions')
+      ])
+      setRanks(await ranksRes.json())
+      setPositions(await positionsRes.json())
+    } catch (e) {
+      console.error(e)
+    }
+    setLoading(false)
   }
 
   const openAdd = (type) => {
@@ -2625,6 +2809,9 @@ function RanksPositionsTab({ token }) {
         <p className="text-gray-400">Manage member ranks and club positions</p>
       </div>
 
+      {loading ? (
+        <LoadingSpinner label="Loading ranks & positions..." fullHeight />
+      ) : (
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Ranks */}
         <Card className="bg-zinc-900/50 border-zinc-800">
@@ -2690,6 +2877,7 @@ function RanksPositionsTab({ token }) {
           </CardContent>
         </Card>
       </div>
+      )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="bg-zinc-900 border-zinc-800">
@@ -2735,6 +2923,7 @@ function RanksPositionsTab({ token }) {
 // Chapters Tab
 function ChaptersTab({ token }) {
   const [chapters, setChapters] = useState([])
+  const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
   const [editingChapter, setEditingChapter] = useState(null)
   const [formData, setFormData] = useState({ name: '', city: '', state: 'Tripura', isMain: false })
@@ -2744,8 +2933,14 @@ function ChaptersTab({ token }) {
   }, [])
 
   const fetchChapters = async () => {
-    const res = await fetch('/api/chapters')
-    setChapters(await res.json())
+    setLoading(true)
+    try {
+      const res = await fetch('/api/chapters')
+      setChapters(await res.json())
+    } catch (e) {
+      console.error(e)
+    }
+    setLoading(false)
   }
 
   const openAdd = () => {
@@ -2796,6 +2991,9 @@ function ChaptersTab({ token }) {
         </Button>
       </div>
 
+      {loading ? (
+        <LoadingSpinner label="Loading chapters..." fullHeight />
+      ) : (
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {chapters.map((chapter) => (
           <Card key={chapter.id} className="bg-zinc-900/50 border-zinc-800">
@@ -2816,7 +3014,11 @@ function ChaptersTab({ token }) {
             </CardContent>
           </Card>
         ))}
+        {chapters.length === 0 && (
+          <div className="col-span-full text-center py-12 text-gray-500">No chapters yet</div>
+        )}
       </div>
+      )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="bg-zinc-900 border-zinc-800">
@@ -3102,10 +3304,7 @@ export default function AdminPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <img src={LOGO_URL} alt="ILTMC" className="w-20 h-20 mx-auto animate-pulse" />
-          <p className="mt-4 text-gray-400">Loading...</p>
-        </div>
+        <LoadingSpinner label="Loading admin panel..." />
       </div>
     )
   }

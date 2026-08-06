@@ -270,15 +270,85 @@ async function handleRoute(request, { params }) {
       }))
     }
 
-    // Get public members
+    // Get public members (lightweight — photo as URL, never inline base64)
     if (route === '/members/public' && method === 'GET') {
-      const members = await db.collection('members')
-        .find({ status: { $in: ['active', 'veteran'] } })
-        .project({ password: 0 })
-        .sort({ rankLevel: -1 })
-        .toArray()
-      const cleanedMembers = members.map(({ _id, ...rest }) => rest)
-      return handleCORS(NextResponse.json(cleanedMembers))
+      const members = await db.collection('members').aggregate([
+        { $match: { status: { $in: ['active', 'veteran'] } } },
+        {
+          $project: {
+            _id: 0,
+            id: 1,
+            accountId: 1,
+            name: 1,
+            roadName: 1,
+            bike: 1,
+            rank: 1,
+            rankLevel: 1,
+            position: 1,
+            chapter: 1,
+            status: 1,
+            approvalStatus: 1,
+            memberType: 1,
+            totalKilometers: 1,
+            ridesCount: 1,
+            lastSeen: 1,
+            isOnline: 1,
+            hasPhoto: {
+              $and: [
+                { $ne: [{ $ifNull: ['$profilePicture', ''] }, ''] },
+                { $ne: ['$profilePicture', null] }
+              ]
+            }
+          }
+        },
+        { $sort: { rankLevel: -1, name: 1 } }
+      ]).toArray()
+
+      const lightweight = members.map(({ hasPhoto, ...m }) => ({
+        ...m,
+        photoUrl: hasPhoto ? `/api/members/${m.id}/photo` : null
+      }))
+      return handleCORS(NextResponse.json(lightweight))
+    }
+
+    // Serve member profile photo by URL (binary), not as base64 in JSON
+    if (route.startsWith('/members/') && route.endsWith('/photo') && method === 'GET') {
+      const memberId = path[1]
+      const member = await db.collection('members').findOne(
+        { id: memberId },
+        { projection: { profilePicture: 1 } }
+      )
+      if (!member?.profilePicture) {
+        return handleCORS(NextResponse.json({ error: 'Photo not found' }, { status: 404 }))
+      }
+
+      const pic = member.profilePicture
+      // External URL — redirect
+      if (typeof pic === 'string' && (pic.startsWith('http://') || pic.startsWith('https://'))) {
+        return NextResponse.redirect(pic, 302)
+      }
+
+      let contentType = 'image/jpeg'
+      let base64Data = pic
+      if (typeof pic === 'string' && pic.startsWith('data:')) {
+        const match = pic.match(/^data:([^;]+);base64,(.+)$/s)
+        if (!match) {
+          return handleCORS(NextResponse.json({ error: 'Invalid photo data' }, { status: 400 }))
+        }
+        contentType = match[1] || 'image/jpeg'
+        base64Data = match[2]
+      }
+
+      const buffer = Buffer.from(base64Data, 'base64')
+      const response = new NextResponse(buffer, {
+        status: 200,
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': String(buffer.length),
+          'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+        }
+      })
+      return handleCORS(response)
     }
 
     // Get public rides
@@ -361,23 +431,41 @@ async function handleRoute(request, { params }) {
     // Get public member profile with rank uploads
     if (route.startsWith('/members/') && route.endsWith('/profile') && method === 'GET') {
       const memberId = path[1]
-      const member = await db.collection('members').findOne({ id: memberId })
+      const member = await db.collection('members').findOne(
+        { id: memberId },
+        {
+          projection: {
+            _id: 0,
+            password: 0,
+            profilePicture: 0,
+            aadhaarCard: 0,
+            aadhaarCardFileName: 0,
+            drivingLicense: 0,
+            drivingLicenseFileName: 0,
+          }
+        }
+      )
       if (!member) {
         return handleCORS(NextResponse.json({ error: 'Member not found' }, { status: 404 }))
       }
+
+      // Check photo exists without loading blob into JSON
+      const photoDoc = await db.collection('members').findOne(
+        { id: memberId, profilePicture: { $exists: true, $nin: [null, ''] } },
+        { projection: { _id: 1 } }
+      )
       
-      // Get rank uploads for this member
+      // Get rank uploads for this member (never send raw file blobs publicly)
       const uploads = await db.collection('ride_uploads')
         .find({ memberId: memberId, status: 'approved' })
+        .project({ _id: 0, fileData: 0 })
         .sort({ uploadedAt: -1 })
         .toArray()
       
-      const cleanedUploads = uploads.map(({ _id, fileData, ...rest }) => rest)
-      const { _id, ...cleanedMember } = member
-      
       return handleCORS(NextResponse.json({
-        ...cleanedMember,
-        rankUploads: cleanedUploads
+        ...member,
+        photoUrl: photoDoc ? `/api/members/${memberId}/photo` : null,
+        rankUploads: uploads
       }))
     }
 
@@ -1060,11 +1148,26 @@ async function handleRoute(request, { params }) {
 
     // Get online members list
     if (route === '/members/online' && method === 'GET') {
-      // Get all members with their online status
-      const members = await db.collection('members')
-        .find({ approvalStatus: 'approved' })
-        .project({ id: 1, name: 1, roadName: 1, lastSeen: 1, isOnline: 1, profilePicture: 1 })
-        .toArray()
+      // Active members only — photo as URL, never base64
+      const members = await db.collection('members').aggregate([
+        { $match: { status: { $in: ['active', 'veteran'] } } },
+        {
+          $project: {
+            _id: 0,
+            id: 1,
+            name: 1,
+            roadName: 1,
+            lastSeen: 1,
+            isOnline: 1,
+            hasPhoto: {
+              $and: [
+                { $ne: [{ $ifNull: ['$profilePicture', ''] }, ''] },
+                { $ne: ['$profilePicture', null] }
+              ]
+            }
+          }
+        }
+      ]).toArray()
       
       const membersWithStatus = members.map(m => {
         const status = getOnlineStatus(m.id)
@@ -1072,7 +1175,7 @@ async function handleRoute(request, { params }) {
           id: m.id,
           name: m.name,
           roadName: m.roadName,
-          profilePicture: m.profilePicture,
+          photoUrl: m.hasPhoto ? `/api/members/${m.id}/photo` : null,
           isOnline: status.isOnline,
           lastSeen: status.lastSeen || m.lastSeen
         }
@@ -1115,20 +1218,36 @@ async function handleRoute(request, { params }) {
         }
       }
 
-      // Get partner details
+      // Get partner details (light fields only — no base64 blobs)
       const partnerIds = Array.from(conversationsMap.keys())
-      const partners = await db.collection('members')
-        .find({ $or: [{ id: { $in: partnerIds } }, { accountId: { $in: partnerIds } }] })
-        .toArray()
+      const partners = await db.collection('members').aggregate([
+        { $match: { $or: [{ id: { $in: partnerIds } }, { accountId: { $in: partnerIds } }] } },
+        {
+          $project: {
+            _id: 0,
+            id: 1,
+            accountId: 1,
+            name: 1,
+            roadName: 1,
+            hasPhoto: {
+              $and: [
+                { $ne: [{ $ifNull: ['$profilePicture', ''] }, ''] },
+                { $ne: ['$profilePicture', null] }
+              ]
+            }
+          }
+        }
+      ]).toArray()
 
       const conversations = Array.from(conversationsMap.values()).map(conv => {
         const partner = partners.find(p => p.id === conv.partnerId || p.accountId === conv.partnerId)
         const status = getOnlineStatus(conv.partnerId)
+        const partnerMemberId = partner?.id || conv.partnerId
         return {
           ...conv,
           partnerName: partner?.name || 'Unknown',
           partnerRoadName: partner?.roadName,
-          partnerPicture: partner?.profilePicture,
+          partnerPicture: partner?.hasPhoto ? `/api/members/${partnerMemberId}/photo` : null,
           isOnline: status.isOnline
         }
       })
@@ -1144,12 +1263,18 @@ async function handleRoute(request, { params }) {
       }
 
       const partnerId = path[2]
+      // Resolve partner account/member ids so old + new message ids both match
+      const partnerMember = await db.collection('members').findOne(
+        { $or: [{ accountId: partnerId }, { id: partnerId }] },
+        { projection: { _id: 0, accountId: 1, id: 1 } }
+      )
+      const partnerIds = [...new Set([partnerId, partnerMember?.accountId, partnerMember?.id].filter(Boolean))]
       
       const messages = await db.collection('chat_messages')
         .find({
           $or: [
-            { senderId: user.id, receiverId: partnerId },
-            { senderId: partnerId, receiverId: user.id }
+            { senderId: user.id, receiverId: { $in: partnerIds } },
+            { senderId: { $in: partnerIds }, receiverId: user.id }
           ]
         })
         .sort({ createdAt: 1 })
@@ -1158,7 +1283,7 @@ async function handleRoute(request, { params }) {
 
       // Mark messages as read
       await db.collection('chat_messages').updateMany(
-        { senderId: partnerId, receiverId: user.id, read: false },
+        { senderId: { $in: partnerIds }, receiverId: user.id, read: false },
         { $set: { read: true, readAt: new Date() } }
       )
 
@@ -1179,11 +1304,18 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Receiver and message required' }, { status: 400 }))
       }
 
+      // Normalize receiver to accountId when possible (JWT ids are account ids)
+      const receiverMember = await db.collection('members').findOne(
+        { $or: [{ accountId: receiverId }, { id: receiverId }] },
+        { projection: { _id: 0, accountId: 1, id: 1 } }
+      )
+      const normalizedReceiverId = receiverMember?.accountId || receiverMember?.id || receiverId
+
       const chatMessage = {
         id: uuidv4(),
         senderId: user.id,
         senderName: user.name,
-        receiverId,
+        receiverId: normalizedReceiverId,
         message: message.trim(),
         read: false,
         createdAt: new Date()
@@ -1271,9 +1403,92 @@ async function handleRoute(request, { params }) {
       const user = await authenticateRequest(request)
       if (!user) return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
 
-      const members = await db.collection('members').find({}).sort({ createdAt: -1 }).toArray()
-      const cleanedMembers = members.map(({ _id, ...rest }) => rest)
-      return handleCORS(NextResponse.json(cleanedMembers))
+      const url = new URL(request.url)
+      const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1)
+      const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '20', 10) || 20))
+      const search = (url.searchParams.get('search') || '').trim()
+      const light = url.searchParams.get('light') === '1'
+
+      const filter = {}
+      if (search) {
+        filter.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { roadName: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+          { phone: { $regex: search, $options: 'i' } },
+          { chapter: { $regex: search, $options: 'i' } },
+          { bike: { $regex: search, $options: 'i' } },
+        ]
+      }
+
+      // Attendance / dropdowns: lightweight full list, no blobs
+      if (light) {
+        const members = await db.collection('members')
+          .find(filter)
+          .project({ _id: 0, id: 1, name: 1, roadName: 1, status: 1, chapter: 1, rank: 1, position: 1 })
+          .sort({ name: 1 })
+          .toArray()
+        return handleCORS(NextResponse.json({
+          members,
+          total: members.length,
+          page: 1,
+          limit: members.length || 1,
+          totalPages: 1
+        }))
+      }
+
+      const total = await db.collection('members').countDocuments(filter)
+      const totalPages = Math.max(1, Math.ceil(total / limit))
+      const safePage = Math.min(page, totalPages)
+      const skip = (safePage - 1) * limit
+
+      const members = await db.collection('members').aggregate([
+        { $match: filter },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $project: {
+            _id: 0,
+            id: 1,
+            accountId: 1,
+            name: 1,
+            roadName: 1,
+            email: 1,
+            phone: 1,
+            bike: 1,
+            rank: 1,
+            position: 1,
+            chapter: 1,
+            status: 1,
+            memberType: 1,
+            approvalStatus: 1,
+            totalKilometers: 1,
+            ridesCount: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            hasPhoto: {
+              $and: [
+                { $ne: [{ $ifNull: ['$profilePicture', ''] }, ''] },
+                { $ne: ['$profilePicture', null] }
+              ]
+            }
+          }
+        }
+      ]).toArray()
+
+      const cleanedMembers = members.map(({ hasPhoto, ...m }) => ({
+        ...m,
+        photoUrl: hasPhoto ? `/api/members/${m.id}/photo` : null
+      }))
+
+      return handleCORS(NextResponse.json({
+        members: cleanedMembers,
+        total,
+        page: safePage,
+        limit,
+        totalPages
+      }))
     }
 
     // Create member (admin creates with password)

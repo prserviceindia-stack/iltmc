@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 const LOGO_URL = 'https://customer-assets.emergentagent.com/job_9bab05d4-0d45-4f8d-a396-cf0659408542/artifacts/lv5k959m_Ilt%20logo.png'
 const HERO_BG = 'https://images.unsplash.com/photo-1542227844-5e56c7c2687d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwxfHxtb3RvcmN5Y2xlJTIwcm9hZHxlbnwwfHx8YmxhY2t8MTc3MjI3NzA4MXww&ixlib=rb-4.1.0&q=85'
@@ -342,9 +343,12 @@ function AboutSection({ content }) {
 }
 
 // Members Section
-function MembersSection({ members, ranks, positions }) {
+function MembersSection({ members, ranks, positions, loading }) {
   const ranksArray = Array.isArray(ranks) ? ranks : []
   const positionsArray = Array.isArray(positions) ? positions : []
+  const displayMembers = Array.isArray(members)
+    ? members.filter(m => m.approvalStatus === 'approved' || !m.approvalStatus).slice(0, 6)
+    : []
   
   const getRankBadge = (rankName) => {
     const rank = ranksArray.find(r => r.name === rankName)
@@ -355,15 +359,6 @@ function MembersSection({ members, ranks, positions }) {
     const position = positionsArray.find(p => p.name === positionName)
     return position?.badge || '⚔️'
   }
-
-  const displayMembers = Array.isArray(members) && members.length > 0 ? members : [
-    { id: '1', name: 'Rahul Deb', roadName: 'Thunder', rank: 'Gunner', position: 'President', chapter: 'Agartala', bike: 'Royal Enfield Classic 350', status: 'active' },
-    { id: '2', name: 'Amit Sarkar', roadName: 'Storm', rank: 'Shotgun', position: 'Vice President', chapter: 'Agartala', bike: 'Harley Davidson Iron 883', status: 'active' },
-    { id: '3', name: 'Bikash Das', roadName: 'Rider', rank: 'Boulder', position: 'Road Captain', chapter: 'Agartala', bike: 'Royal Enfield Himalayan', status: 'active' },
-    { id: '4', name: 'Dipak Roy', roadName: 'Ghost', rank: 'Iron Clad', position: 'Member', chapter: 'Dharmanagar', bike: 'KTM Duke 390', status: 'active' },
-    { id: '5', name: 'Suman Debnath', roadName: 'Blaze', rank: 'Iron', position: 'Member', chapter: 'Agartala', bike: 'Bajaj Dominar 400', status: 'active' },
-    { id: '6', name: 'Rajesh Nath', roadName: 'Phoenix', rank: 'Rubble', position: 'Member', chapter: 'Udaipur', bike: 'TVS Apache RR310', status: 'active' },
-  ]
 
   return (
     <section id="members" className="py-24 bg-gradient-to-b from-zinc-950 to-black">
@@ -383,6 +378,11 @@ function MembersSection({ members, ranks, positions }) {
           </p>
         </motion.div>
 
+        {loading ? (
+          <LoadingSpinner label="Loading members..." />
+        ) : displayMembers.length === 0 ? (
+          <p className="text-center text-gray-500 py-12">No members to display yet</p>
+        ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {displayMembers.map((member, index) => (
             <motion.div
@@ -433,23 +433,20 @@ function MembersSection({ members, ranks, positions }) {
             </motion.div>
           ))}
         </div>
+        )}
       </div>
     </section>
   )
 }
 
 // Rides Section
-function RidesSection({ rides }) {
+function RidesSection({ rides, loading: dataLoading }) {
   const [showRsvpDialog, setShowRsvpDialog] = useState(false)
   const [selectedRide, setSelectedRide] = useState(null)
   const [rsvpForm, setRsvpForm] = useState({ name: '', email: '', phone: '', message: '' })
-  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
-  const displayRides = rides?.length > 0 ? rides : [
-    { id: '1', title: 'Northeast Expedition', description: 'Epic ride through the seven sisters', date: new Date('2025-07-15'), distance: 850, difficulty: 'Hard', startPoint: 'Agartala', endPoint: 'Shillong', captain: 'Thunder' },
-    { id: '2', title: 'Tripura Heritage Ride', description: 'Exploring ancient temples and palaces', date: new Date('2025-06-20'), distance: 280, difficulty: 'Medium', startPoint: 'Agartala', endPoint: 'Udaipur', captain: 'Storm' },
-    { id: '3', title: 'Dawn Patrol', description: 'Weekly sunrise ride', date: new Date('2025-06-08'), distance: 120, difficulty: 'Easy', startPoint: 'Agartala', endPoint: 'Ambassa', captain: 'Rider' },
-  ]
+  const displayRides = Array.isArray(rides) ? rides : []
 
   const openRsvp = (ride) => {
     setSelectedRide(ride)
@@ -458,7 +455,7 @@ function RidesSection({ rides }) {
 
   const handleRsvpSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
+    setSubmitting(true)
     try {
       const res = await fetch('/api/rsvp/ride', {
         method: 'POST',
@@ -479,7 +476,7 @@ function RidesSection({ rides }) {
     } catch (error) {
       toast.error('Something went wrong')
     }
-    setLoading(false)
+    setSubmitting(false)
   }
 
   return (
@@ -504,6 +501,11 @@ function RidesSection({ rides }) {
           </p>
         </motion.div>
 
+        {dataLoading ? (
+          <LoadingSpinner label="Loading rides..." />
+        ) : displayRides.length === 0 ? (
+          <p className="text-center text-gray-500 py-12">No upcoming rides right now</p>
+        ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {displayRides.map((ride, index) => (
             <motion.div
@@ -557,6 +559,7 @@ function RidesSection({ rides }) {
             </motion.div>
           ))}
         </div>
+        )}
       </div>
 
       {/* RSVP Dialog */}
@@ -605,8 +608,8 @@ function RidesSection({ rides }) {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowRsvpDialog(false)}>Cancel</Button>
-              <Button type="submit" className="bg-red-600 hover:bg-red-700" disabled={loading}>
-                {loading ? 'Submitting...' : 'Submit RSVP'}
+              <Button type="submit" className="bg-red-600 hover:bg-red-700" disabled={submitting}>
+                {submitting ? 'Submitting...' : 'Submit RSVP'}
               </Button>
             </DialogFooter>
           </form>
@@ -617,17 +620,13 @@ function RidesSection({ rides }) {
 }
 
 // Events Section
-function EventsSection({ events }) {
+function EventsSection({ events, loading: dataLoading }) {
   const [showRegisterDialog, setShowRegisterDialog] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [registerForm, setRegisterForm] = useState({ name: '', email: '', phone: '', participants: 1, message: '' })
-  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
-  const displayEvents = events?.length > 0 ? events : [
-    { id: '1', title: 'ILTMC Anniversary Rally', description: 'Celebrating 12 years of brotherhood', date: new Date('2025-08-15'), venue: 'Agartala Central', type: 'Rally' },
-    { id: '2', title: 'Bike Show & Meet', description: 'Display your machine and meet fellow riders', date: new Date('2025-07-01'), venue: 'City Convention Center', type: 'Show' },
-    { id: '3', title: 'Charity Ride for Education', description: 'Riding for a cause - support underprivileged children', date: new Date('2025-06-25'), venue: 'Agartala to Udaipur', type: 'Charity' },
-  ]
+  const displayEvents = Array.isArray(events) ? events : []
 
   const openRegister = (event) => {
     setSelectedEvent(event)
@@ -636,7 +635,7 @@ function EventsSection({ events }) {
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
+    setSubmitting(true)
     try {
       const res = await fetch('/api/rsvp/event', {
         method: 'POST',
@@ -657,7 +656,7 @@ function EventsSection({ events }) {
     } catch (error) {
       toast.error('Something went wrong')
     }
-    setLoading(false)
+    setSubmitting(false)
   }
 
   return (
@@ -678,6 +677,11 @@ function EventsSection({ events }) {
           </p>
         </motion.div>
 
+        {dataLoading ? (
+          <LoadingSpinner label="Loading events..." />
+        ) : displayEvents.length === 0 ? (
+          <p className="text-center text-gray-500 py-12">No upcoming events right now</p>
+        ) : (
         <div className="grid md:grid-cols-3 gap-6">
           {displayEvents.map((event, index) => (
             <motion.div
@@ -724,6 +728,7 @@ function EventsSection({ events }) {
             </motion.div>
           ))}
         </div>
+        )}
       </div>
 
       {/* Register Dialog */}
@@ -784,8 +789,8 @@ function EventsSection({ events }) {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowRegisterDialog(false)}>Cancel</Button>
-              <Button type="submit" className="bg-red-600 hover:bg-red-700" disabled={loading}>
-                {loading ? 'Submitting...' : 'Submit Registration'}
+              <Button type="submit" className="bg-red-600 hover:bg-red-700" disabled={submitting}>
+                {submitting ? 'Submitting...' : 'Submit Registration'}
               </Button>
             </DialogFooter>
           </form>
@@ -796,8 +801,10 @@ function EventsSection({ events }) {
 }
 
 // Gallery Section
-function GallerySection() {
-  const galleryImages = [HERO_BG, ABOUT_IMG, RIDES_IMG, GALLERY_IMG, HERO_BG, ABOUT_IMG]
+function GallerySection({ images, loading }) {
+  const galleryImages = Array.isArray(images) && images.length > 0
+    ? images.map((item) => item.imageUrl || item.url || item).filter(Boolean)
+    : []
 
   return (
     <section id="gallery" className="py-24 bg-gradient-to-b from-zinc-950 to-black">
@@ -817,6 +824,11 @@ function GallerySection() {
           </p>
         </motion.div>
 
+        {loading ? (
+          <LoadingSpinner label="Loading gallery..." />
+        ) : galleryImages.length === 0 ? (
+          <p className="text-center text-gray-500 py-12">No gallery images yet</p>
+        ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {galleryImages.map((img, index) => (
             <motion.div
@@ -838,6 +850,7 @@ function GallerySection() {
             </motion.div>
           ))}
         </div>
+        )}
       </div>
     </section>
   )
@@ -1151,14 +1164,35 @@ export default function App() {
   const [events, setEvents] = useState([])
   const [ranks, setRanks] = useState([])
   const [positions, setPositions] = useState([])
+  const [gallery, setGallery] = useState([])
   const [content, setContent] = useState(null)
+  const [membersLoading, setMembersLoading] = useState(true)
+  const [ridesLoading, setRidesLoading] = useState(true)
+  const [eventsLoading, setEventsLoading] = useState(true)
+  const [galleryLoading, setGalleryLoading] = useState(true)
 
   useEffect(() => {
-    // Fetch public data
     fetch('/api/stats').then(r => r.json()).then(setStats).catch(console.error)
-    fetch('/api/members/public').then(r => r.json()).then(setMembers).catch(console.error)
-    fetch('/api/rides/upcoming').then(r => r.json()).then(setRides).catch(console.error)
-    fetch('/api/events/upcoming').then(r => r.json()).then(setEvents).catch(console.error)
+    fetch('/api/members/public')
+      .then(r => r.json())
+      .then(setMembers)
+      .catch(console.error)
+      .finally(() => setMembersLoading(false))
+    fetch('/api/rides/upcoming')
+      .then(r => r.json())
+      .then(setRides)
+      .catch(console.error)
+      .finally(() => setRidesLoading(false))
+    fetch('/api/events/upcoming')
+      .then(r => r.json())
+      .then(setEvents)
+      .catch(console.error)
+      .finally(() => setEventsLoading(false))
+    fetch('/api/gallery')
+      .then(r => r.json())
+      .then(setGallery)
+      .catch(console.error)
+      .finally(() => setGalleryLoading(false))
     fetch('/api/ranks').then(r => r.json()).then(setRanks).catch(console.error)
     fetch('/api/positions').then(r => r.json()).then(setPositions).catch(console.error)
     fetch('/api/content').then(r => r.json()).then(setContent).catch(console.error)
@@ -1169,10 +1203,10 @@ export default function App() {
       <Navbar content={content} />
       <HeroSection stats={stats} content={content} />
       <AboutSection content={content} />
-      <MembersSection members={members} ranks={ranks} positions={positions} />
-      <RidesSection rides={rides} />
-      <EventsSection events={events} />
-      <GallerySection />
+      <MembersSection members={members} ranks={ranks} positions={positions} loading={membersLoading} />
+      <RidesSection rides={rides} loading={ridesLoading} />
+      <EventsSection events={events} loading={eventsLoading} />
+      <GallerySection images={gallery} loading={galleryLoading} />
       <JoinSection />
       <ContactSection content={content} />
       <Footer content={content} />

@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 const LOGO_URL = 'https://customer-assets.emergentagent.com/job_9bab05d4-0d45-4f8d-a396-cf0659408542/artifacts/lv5k959m_Ilt%20logo.png'
 
@@ -203,13 +204,19 @@ export default function MembersPage() {
             </div>
           </div>
           <p className="text-gray-500 text-sm mt-3">
-            Showing {filteredMembers.length} of {members.length} members
+            {loading ? 'Loading members...' : `Showing ${filteredMembers.length} of ${members.length} members`}
           </p>
         </div>
       </section>
 
+      {loading && (
+        <section className="py-12">
+          <LoadingSpinner label="Loading members..." fullHeight />
+        </section>
+      )}
+
       {/* Leadership */}
-      {leaders.length > 0 && (
+      {!loading && leaders.length > 0 && (
         <section className="py-12 bg-gradient-to-b from-zinc-950 to-black">
           <div className="container mx-auto px-4">
             <h2 className="text-2xl font-bold mb-8 text-center" style={{ fontFamily: 'Oswald, sans-serif' }}>
@@ -237,8 +244,12 @@ export default function MembersPage() {
                           </div>
                         )}
                         
-                        <div className="w-20 h-20 mx-auto bg-gradient-to-br from-red-600 to-red-800 rounded-full flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">
-                          {getPositionBadge(member.position) || member.name?.charAt(0)}
+                        <div className="w-20 h-20 mx-auto bg-gradient-to-br from-red-600 to-red-800 rounded-full flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform overflow-hidden">
+                          {member.photoUrl ? (
+                            <img src={member.photoUrl} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            getPositionBadge(member.position) || member.name?.charAt(0)
+                          )}
                         </div>
                         <h3 className="font-bold text-lg">{member.name}</h3>
                         {member.roadName && (
@@ -265,6 +276,7 @@ export default function MembersPage() {
       )}
 
       {/* All Members */}
+      {!loading && (
       <section className="py-12">
         <div className="container mx-auto px-4">
           <h2 className="text-2xl font-bold mb-8" style={{ fontFamily: 'Oswald, sans-serif' }}>
@@ -272,16 +284,10 @@ export default function MembersPage() {
             ALL <span className="text-red-500">MEMBERS</span>
           </h2>
           
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-              <p className="mt-4 text-gray-400">Loading members...</p>
-            </div>
-          ) : (
             <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {(leaders.length > 0 ? regularMembers : filteredMembers).map((member, index) => (
+              {filteredMembers.map((member, index) => (
                 <motion.div
-                  key={member.id}
+                  key={member.id || member.accountId || `member-${index}`}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.03 }}
@@ -296,8 +302,12 @@ export default function MembersPage() {
                           </div>
                         )}
                         
-                        <div className="w-16 h-16 mx-auto bg-gradient-to-br from-zinc-700 to-zinc-800 rounded-full flex items-center justify-center text-2xl mb-3 group-hover:from-red-700 group-hover:to-red-900 transition-all">
-                          {getRankBadge(member.rank) || member.name?.charAt(0)}
+                        <div className="w-16 h-16 mx-auto bg-gradient-to-br from-zinc-700 to-zinc-800 rounded-full flex items-center justify-center text-2xl mb-3 group-hover:from-red-700 group-hover:to-red-900 transition-all overflow-hidden">
+                          {member.photoUrl ? (
+                            <img src={member.photoUrl} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            getRankBadge(member.rank) || member.name?.charAt(0)
+                          )}
                         </div>
                         <h3 className="font-bold truncate">{member.name}</h3>
                         {member.roadName && (
@@ -339,9 +349,9 @@ export default function MembersPage() {
                 </div>
               )}
             </div>
-          )}
         </div>
       </section>
+      )}
 
       {/* Join CTA */}
       <section className="py-16 bg-gradient-to-t from-red-950/30 to-black">
